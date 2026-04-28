@@ -1,30 +1,29 @@
-# Organisations (~75)
+# Organisations (~95)
 
-All organisations tracked by repo-hub. Only public repos with OSI-approved licenses are included.
+All organisations tracked by repo-hub. Only public repos with OSI-approved licenses are included. Entries marked `[user]` are individual GitHub accounts fetched via `/users/{handle}/repos`.
 
 ---
 
-## Chip & Hardware
+## Chip & Hardware Vendors
 
 | Handle | Label | Focus |
 |---|---|---|
-| `intel` | Intel | oneAPI, OpenVINO, MLIR tooling, DPDK, neural-compressor, Gaudi |
+| `intel` | Intel | oneAPI, OpenVINO, MLIR tooling, DPDK, Neural Compressor, Gaudi |
 | `ROCm` | AMD ROCm | ROCm stack, HIP, rocBLAS, MIOpen, RCCL |
 | `AMDResearch` | AMD Research | Research-track GPU/compiler work |
-| `Xilinx` | AMD Xilinx | Vitis HLS, Vivado scripts, FPGA inference, AIE |
-| `NVIDIA` | NVIDIA | CUDA toolkits, cuDNN, Triton backends, NeMo |
-| `NVlabs` | NVIDIA Labs | Research: CUTLASS, DLSS, instant-ngp, EG3D |
+| `Xilinx` | AMD Xilinx | Vitis HLS, Vivado scripts, FPGA inference, AIE (AI Engines) |
+| `NVIDIA` | NVIDIA | CUDA toolkits, cuDNN, Triton backends, NeMo, CUTLASS |
+| `NVlabs` | NVIDIA Labs | Research: CUTLASS, instant-ngp, DLSS, EG3D |
 | `ARM-software` | ARM | Compute Library, Ethos NPU, CMSIS-NN, Arm NN |
-| `quic` | Qualcomm Innovation Center | QNN, SNPE, AI Hub, hexagon tooling |
-| `tenstorrent` | Tenstorrent | TT-Buda, TT-Metalium, Wormhole/Blackhole software |
-| `modularml` | Modular | Mojo, MAX (formerly Modular AI Engine) |
-| `ibm` | IBM | IBM AI tools, quantum, systems |
-| `ibm-quantum` | IBM Quantum | Qiskit and quantum compute (context-adjacent) |
-| `STMicroelectronics` | STMicroelectronics | STM32 HAL, Cube firmware, edge AI |
-| `NXPSemiconductors` | NXP | NXP MCU/MPU SDKs, eIQ ML toolkit |
-| `raspberrypi` | Raspberry Pi | RPi firmware, Linux fork, RP2040 SDK |
-| `efabless` | Efabless | Open-source silicon (Caravel, SKY130) |
-| `rapidsilicon` | Rapid Silicon | Open FPGA toolchain (Raptor) |
+| `quic` | Qualcomm Innovation Center | QNN, SNPE, AI Hub, Hexagon tooling |
+| `tenstorrent` | Tenstorrent | TT-Buda, TT-Metalium, Wormhole/Blackhole software stack |
+| `modularml` | Modular | Mojo language, MAX (formerly Modular AI Engine) |
+| `ibm` | IBM | IBM AI tools, quantum, systems software |
+| `STMicroelectronics` | STMicroelectronics | STM32 HAL, Cube firmware, edge AI (STM32Cube.AI) |
+| `NXPSemiconductors` | NXP | MCU/MPU SDKs, eIQ ML toolkit |
+| `raspberrypi` | Raspberry Pi | RPi firmware, Linux fork, RP2040/RP2350 SDK |
+| `efabless` | Efabless | Open-source silicon (Caravel, SKY130), OpenLane |
+| `rapidsilicon` | Rapid Silicon | Open FPGA toolchain (Raptor EDA) |
 
 ---
 
@@ -32,24 +31,24 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 
 | Handle | Label | Focus |
 |---|---|---|
-| `huggingface` | HuggingFace | Transformers, Diffusers, PEFT, TRL, Datasets, Hub |
+| `huggingface` | HuggingFace | Transformers, Diffusers, PEFT, TRL, Datasets, Hub, smolagents |
 | `pytorch` | PyTorch | PyTorch core, torch.compile, torchao, ExecuTorch |
 | `keras-team` | Keras | Keras 3, backend-agnostic training |
-| `google-deepmind` | Google DeepMind | Gemma, Gemini tooling, AlphaFold, research |
-| `google` | Google | JAX, XLA, MediaPipe, Magenta, TFX |
-| `facebookresearch` | Meta Research | FAISS, Detectron2, LLaMA research, NCCL |
-| `microsoft` | Microsoft | ONNX Runtime, DeepSpeed, Olive, Phi, AutoGen |
-| `openxla` | OpenXLA | XLA, StableHLO, PJRT, Shardy |
+| `google-deepmind` | Google DeepMind | Gemma, Gemini tooling, AlphaFold, Optax |
+| `google` | Google | JAX, XLA, MediaPipe, TFX (filter: ml/ai/compiler/webgpu topics) |
+| `facebookresearch` | Meta Research | FAISS, Detectron2, LLaMA research, NCCL, PyTorch extensions |
+| `microsoft` | Microsoft | ONNX Runtime, DeepSpeed, Olive, Phi, AutoGen (filter: ml/ai/onnx topics) |
+| `openxla` | OpenXLA | XLA, StableHLO, PJRT, Shardy, OpenXLA/Runtime |
 
 ---
 
-## Inference & Runtimes
+## LLM Inference & Serving
 
 | Handle | Label | Focus |
 |---|---|---|
-| `vllm-project` | vLLM | vLLM (paged attention, continuous batching) |
-| `ggerganov` | Georgi Gerganov | llama.cpp, whisper.cpp, GGUF format, ggml |
-| `neuralmagic` | Neural Magic | DeepSparse, SparseML, LLM Compressor |
+| `vllm-project` | vLLM | vLLM — paged attention, continuous batching, OpenAI-compatible server |
+| `ggerganov` `[user]` | Georgi Gerganov | llama.cpp, whisper.cpp, GGUF format, ggml |
+| `neuralmagic` | Neural Magic | DeepSparse, SparseML, LLM Compressor, nm-vllm |
 | `lm-sys` | LM-SYS | SGLang, Vicuna, FastChat |
 | `mlc-ai` | MLC AI | MLC-LLM (WebGPU/Metal/CUDA/ROCm inference) |
 
@@ -59,40 +58,38 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 
 | Handle | Label | Focus |
 |---|---|---|
-| `IST-DASLab` | IST DAS Lab | SparseGPT, GPTQ, Marlin, Flute kernels |
-| `casper-hansen` | Casper Hansen | AutoAWQ |
-| `TimDettmers` | Tim Dettmers | bitsandbytes (QLoRA, NF4, INT8) |
-| `microsoft` | Microsoft | Olive (multi-backend quant pipeline) |
-| `intel` | Intel | Neural Compressor (already listed) |
+| `IST-DASLab` | IST DAS Lab | SparseGPT, GPTQ, Marlin kernels, Flute, QuIP# |
+| `casper-hansen` `[user]` | Casper Hansen | AutoAWQ |
+| `TimDettmers` `[user]` | Tim Dettmers | bitsandbytes (QLoRA, NF4, INT8) |
 
 ---
 
-## AI Compilers
+## AI Compilers & Frameworks
 
 | Handle | Label | Focus |
 |---|---|---|
-| `llvm` | LLVM | LLVM, MLIR, Clang, lld, compiler-rt |
-| `apache` | Apache | TVM (filter: topic=tvm) |
-| `iree-org` | IREE | IREE compiler + runtime (MLIR-based) |
+| `llvm` | LLVM | LLVM, MLIR, Clang, lld, CIRCT (hardware compilers) |
+| `apache` | Apache | TVM (filter: tvm topic) |
+| `iree-org` | IREE | IREE compiler + runtime (MLIR-based, targets CPU/GPU/Metal/Vulkan) |
 | `triton-lang` | Triton | Triton GPU kernel compiler |
-| `nod-ai` | Nod.ai | SHARK, IREE-based tooling, AMD inference |
-| `buddy-compiler` | Buddy Compiler | Buddy-MLIR, RISC-V AI compiler |
-| `openxla` | OpenXLA | XLA, StableHLO (already listed) |
+| `nod-ai` | Nod.ai | SHARK, IREE-based tooling, AMD GPU inference |
+| `buddy-compiler` | Buddy Compiler | Buddy-MLIR, RISC-V AI compiler, buddy-mlir |
+| `calyxir` | Calyx IR | Intermediate language for hardware accelerator generators |
 
 ---
 
-## OS, Kernel & Low-Level Systems
+## OS, Kernel & Systems
 
 | Handle | Label | Focus |
 |---|---|---|
-| `torvalds` | Linus Torvalds | Linux kernel |
+| `torvalds` `[user]` | Linus Torvalds | Linux kernel |
 | `freebsd` | FreeBSD | FreeBSD OS |
-| `iovisor` | IO Visor | BCC, bpftrace, eBPF tools |
-| `libbpf` | libbpf | libbpf (eBPF library) |
-| `axboe` | Jens Axboe | io_uring, liburing, fio |
+| `iovisor` | IO Visor | BCC, bpftrace (eBPF tooling) |
+| `libbpf` | libbpf | libbpf (eBPF library and skeleton framework) |
+| `axboe` `[user]` | Jens Axboe | io_uring, liburing, fio |
 | `DPDK` | DPDK | Data Plane Development Kit |
-| `systemd` | systemd | systemd, udev, journald, networkd |
-| `brendangregg` | Brendan Gregg | BPF Performance Tools, flamegraph |
+| `systemd` | systemd | systemd, udev, journald, networkd, resolved |
+| `brendangregg` `[user]` | Brendan Gregg | BPF Performance Tools, flamegraph scripts |
 | `sysstat` | sysstat | sysstat, iostat, sar, pidstat |
 
 ---
@@ -101,7 +98,7 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 
 | Handle | Label | Focus |
 |---|---|---|
-| `mesa3d` | Mesa 3D | Mesa (open GPU drivers: amdgpu, i915, nouveau, iris) |
+| `mesa3d` | Mesa 3D | Mesa open GPU drivers (amdgpu, i915, nouveau, iris, radeonsi) |
 | `tianocore` | TianoCore | EDK2 / UEFI firmware |
 | `coreboot` | coreboot | coreboot open-source firmware |
 | `u-boot` | Das U-Boot | U-Boot bootloader |
@@ -113,13 +110,13 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 
 | Handle | Label | Focus |
 |---|---|---|
-| `KDE` | KDE | KDE Plasma, KWin, Qt apps, KDE Frameworks |
-| `GNOME` | GNOME | GNOME Shell, Mutter, GTK, GLib |
-| `freedesktop` | freedesktop.org | Wayland protocol, xdg-*, D-Bus, fontconfig |
-| `wayland` | Wayland | Wayland core, Weston compositor |
-| `qt` | Qt | Qt framework (qtbase, qtdeclarative, qml) |
+| `KDE` | KDE | KDE Plasma, KWin, Qt apps, KDE Frameworks (Kirigami, etc.) |
+| `GNOME` | GNOME | GNOME Shell, Mutter, GTK, GLib, libadwaita |
+| `freedesktop` | freedesktop.org | Wayland protocol, xdg-*, D-Bus, fontconfig, Mesa specs |
+| `wayland` | Wayland | Wayland core protocol, Weston compositor |
+| `qt` | Qt | Qt framework (qtbase, qtdeclarative, qml, qtmultimedia) |
 | `swaywm` | Sway | Sway Wayland compositor |
-| `hyprwm` | Hyprland | Hyprland (animated Wayland compositor) |
+| `hyprwm` | Hyprland | Hyprland (animated tiling Wayland compositor) |
 
 ---
 
@@ -135,6 +132,54 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 
 ---
 
+## EDA / RTL Simulation / HLS
+
+| Handle | Label | Focus |
+|---|---|---|
+| `YosysHQ` | YosysHQ | Yosys synthesis, nextpnr P&R, SymbiYosys formal verification, fpga-toolchain |
+| `cocotb` | cocotb | Python RTL verification framework + AXI/I2C/Ethernet/UART bus models |
+| `verilator` | Verilator | Verilator — fast SystemVerilog/Verilog simulator (generates C++) |
+| `ghdl` | GHDL | GHDL VHDL 2008/93/87 simulator |
+| `steveicarus` `[user]` | Steve Icarus | Icarus Verilog simulator |
+| `ferrandi` `[user]` | Bambu HLS | PandA-Bambu HLS framework (Politecnico di Milano) |
+| `pymtl` | PyMTL3 | Python-based hardware modelling, simulation, and verification |
+| `UCSBarchlab` | UCSB Arch Lab | PyRTL — Python RTL design language |
+| `lnis-uofu` | OpenFPGA (UOFU) | FPGA architecture exploration and silicon proofs |
+| `f4pga` | F4PGA | Fully open-source FPGA toolchain (rebranded SymbiFlow) |
+| `enjoy-digital` `[user]` | Enjoy Digital | LiteX SoC framework, LitePCIe, LiteEth, LiteICLink, LiteHyperBus |
+| `litex-hub` | LiteX Hub | LiteX board support files and peripheral IP cores |
+| `gatecat` `[user]` | gatecat | prjoxide (Lattice 28nm FPGA docs), prjtrellis, apicula |
+| `alexforencich` `[user]` | Alex Forencich | Verilog PCIe, Ethernet, AXI cores + cocotb extension models |
+
+---
+
+## PCIe / CXL / NVMe / Interconnect
+
+| Handle | Label | Focus |
+|---|---|---|
+| `spdk` | SPDK | Storage Performance Development Kit — user-space NVMe/PCIe |
+| `ofiwg` | OpenFabrics | libfabric — OpenFabrics Interfaces (OFI) for RDMA, OPA, TCP |
+| `linux-nvme` | NVMe CLI | nvme-cli — NVMe management command-line interface |
+| `linux-rdma` | RDMA Core | rdma-core — RDMA userspace libraries, libibverbs, rdma-cm |
+| `pmem` | Persistent Memory | PMDK — Persistent Memory Development Kit |
+
+---
+
+## SoC / RISC-V
+
+| Handle | Label | Focus |
+|---|---|---|
+| `chipsalliance` | CHIPS Alliance | Chisel HDL, FIRRTL compiler, Rocket Chip generator, F4PGA |
+| `openhwgroup` | OpenHW Group | CV32E40P (32-bit RV32), CVA6 (64-bit RV64), CORE-V verification |
+| `ucb-bar` | UC Berkeley | Chipyard SoC framework, BOOM out-of-order core, Hammer VLSI flow |
+| `pulp-platform` | PULP Platform | CVA6, Cheshire (Linux-capable SoC), PULP cores, Bender dep tool |
+| `lowrisc` | lowRISC | OpenTitan silicon root of trust, ibex RV32 embedded core |
+| `riscv` | RISC-V International | RISC-V ISA manual, opcodes, specs (read-only reference) |
+| `riscv-boom` | Berkeley OOO Machine | BOOM — superscalar out-of-order RV64GC processor |
+| `riscv-software-src` | RISC-V Software | Spike ISA simulator, riscv-tests, riscv-pk proxy kernel |
+
+---
+
 ## Research & Open Models
 
 | Handle | Label | Focus |
@@ -142,10 +187,10 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 | `EleutherAI` | EleutherAI | GPT-NeoX, Pythia, The Pile, lm-evaluation-harness |
 | `Stability-AI` | Stability AI | Stable Diffusion, StableCode, StableLM |
 | `mistralai` | Mistral AI | Mistral, Mixtral, vLLM integrations |
-| `openai` | OpenAI | Whisper, CLIP, Triton (original), evals |
+| `openai` | OpenAI | Whisper, CLIP, Triton (original), evals, tiktoken |
 | `mlcommons` | MLCommons | MLPerf benchmarks, Croissant dataset format |
-| `LAION-AI` | LAION | LAION datasets, Open Assistant, Open Flamingo |
-| `bigscience-workshop` | BigScience | BLOOM, T0, datasets |
+| `LAION-AI` | LAION | LAION-400M, Open Assistant, Open Flamingo |
+| `bigscience-workshop` | BigScience | BLOOM, T0, multilingual datasets |
 
 ---
 
@@ -153,15 +198,15 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 
 | Handle | Label | Focus |
 |---|---|---|
-| `milvus-io` | Milvus | Milvus vector database |
+| `milvus-io` | Milvus | Milvus vector database (Go + C++) |
 | `qdrant` | Qdrant | Qdrant vector database (Rust) |
-| `weaviate` | Weaviate | Weaviate vector DB + semantic search |
-| `chroma-core` | Chroma | ChromaDB (embedding database) |
-| `lancedb` | LanceDB | LanceDB (columnar AI-native storage) |
-| `duckdb` | DuckDB | DuckDB (in-process analytics) |
-| `pgvector` | pgvector | pgvector (PostgreSQL vector extension) |
-| `nmslib` | NMSLIB | hnswlib (HNSW index) |
-| `google-research` | Google Research | ScaNN (fast ANN search) |
+| `weaviate` | Weaviate | Weaviate vector DB + semantic search + GraphQL |
+| `chroma-core` | Chroma | ChromaDB (Python-first embedding database) |
+| `lancedb` | LanceDB | LanceDB (columnar, AI-native, Lance format) |
+| `duckdb` | DuckDB | DuckDB in-process analytics engine |
+| `pgvector` | pgvector | pgvector PostgreSQL extension |
+| `nmslib` | NMSLIB | hnswlib (HNSW approximate nearest-neighbour index) |
+| `google-research` | Google Research | ScaNN (fast ANN search library) |
 
 ---
 
@@ -169,12 +214,12 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 
 | Handle | Label | Focus |
 |---|---|---|
-| `google` | Google | Chromium, V8, Dawn (WebGPU) (already listed) |
-| `mozilla` | Mozilla | Firefox, SpiderMonkey, Wasmtime |
-| `webkit` | WebKit | WebKit, JavaScriptCore |
-| `bytecodealliance` | Bytecode Alliance | Wasmtime, WASI, Cranelift, wit-bindgen |
-| `WasmEdge-WASM` | WasmEdge | WasmEdge (AI-focused WASM runtime) |
-| `gpuweb` | GPU Web WG | WebGPU spec + Conformance Test Suite |
+| `google` | Google | Chromium, V8, Dawn (WebGPU impl) — filtered |
+| `mozilla` | Mozilla | Firefox, SpiderMonkey JS engine, Wasmtime |
+| `webkit` | WebKit | WebKit engine, JavaScriptCore |
+| `bytecodealliance` | Bytecode Alliance | Wasmtime, WASI, Cranelift compiler, wit-bindgen |
+| `WasmEdge-WASM` | WasmEdge | WasmEdge (AI-focused WASM runtime with WASI-NN) |
+| `gpuweb` | GPU Web WG | WebGPU specification and Conformance Test Suite |
 
 ---
 
@@ -183,14 +228,14 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 | Handle | Label | Focus |
 |---|---|---|
 | `langchain-ai` | LangChain | LangChain, LangGraph, LangSmith |
-| `run-llama` | LlamaIndex | LlamaIndex (data framework for LLM apps) |
-| `microsoft` | Microsoft | AutoGen, Semantic Kernel (already listed) |
+| `run-llama` | LlamaIndex | LlamaIndex (data framework for LLM applications) |
+| `microsoft` | Microsoft | AutoGen, Semantic Kernel — filtered |
 | `crewAIInc` | CrewAI | CrewAI multi-agent framework |
 | `deepset-ai` | Deepset | Haystack (production-ready LLM pipelines) |
-| `mem0ai` | Mem0 | Mem0 (memory layer for AI apps) |
-| `letta-ai` | Letta | Letta / MemGPT (stateful agents) |
+| `mem0ai` | Mem0 | Mem0 (memory layer for AI applications) |
+| `letta-ai` | Letta | Letta / MemGPT (stateful agents with persistent memory) |
 | `pydantic` | Pydantic | PydanticAI (type-safe agent framework) |
-| `Significant-Gravitas` | Significant Gravitas | AutoGPT |
+| `Significant-Gravitas` | AutoGPT | AutoGPT |
 | `geekan` | MetaGPT | MetaGPT (multi-agent software engineering) |
 | `anthropics` | Anthropic | MCP (Model Context Protocol) |
 
@@ -202,44 +247,49 @@ All organisations tracked by repo-hub. Only public repos with OSI-approved licen
 |---|---|---|
 | `open-telemetry` | OpenTelemetry | OTel SDK, Collector, semantic conventions |
 | `prometheus` | Prometheus | Prometheus, Alertmanager, exporters |
-| `grafana` | Grafana | Grafana, Loki, Tempo, Mimir, Beyla |
+| `grafana` | Grafana | Grafana, Loki, Tempo, Mimir, Beyla (eBPF-based) |
 | `jaegertracing` | Jaeger | Jaeger distributed tracing |
-| `mlflow` | MLflow | MLflow (experiment tracking, model registry) |
+| `mlflow` | MLflow | MLflow (experiment tracking, model registry, deployments) |
 | `iterative` | Iterative | DVC, DVCLive, CML (data/model versioning) |
-| `evidentlyai` | Evidently AI | Evidently (ML monitoring, drift detection) |
-| `arize-ai` | Arize AI | Phoenix (LLM tracing, evals, datasets) |
-| `cilium` | Cilium | Cilium, Hubble (eBPF network observability) |
-| `netdata` | Netdata | Netdata (real-time Linux monitoring) |
+| `evidentlyai` | Evidently AI | Evidently (ML monitoring, drift detection, test suites) |
+| `arize-ai` | Arize AI | Phoenix (LLM tracing, evals, datasets, Arize integration) |
+| `cilium` | Cilium | Cilium, Hubble (eBPF-based Kubernetes network observability) |
+| `netdata` | Netdata | Netdata (real-time Linux system monitoring) |
 
 ---
 
 ## HuggingFace Hub Orgs (model/dataset tracking)
 
-These are tracked via the HuggingFace Hub API in addition to (or instead of) GitHub.
+These are tracked via the HuggingFace Hub API in parallel to GitHub.
 
 | HF Handle | What we pull |
 |---|---|
 | `huggingface` | Official HF models and datasets |
-| `microsoft` | Phi series models |
+| `microsoft` | Phi-3, Phi-4 series models |
 | `google` | Gemma, PaLiGemma, T5 variants |
 | `meta-llama` | Llama 2, Llama 3, Code Llama |
-| `mistralai` | Mistral, Mixtral |
+| `mistralai` | Mistral, Mixtral, Mathstral |
 | `EleutherAI` | Pythia, GPT-NeoX models |
 | `Stability-AI` | Stable Diffusion, StableLM |
 | `BAAI` | BGE embeddings, FlagEmbedding |
 | `Qwen` | Qwen series (Alibaba Cloud) |
-| `deepseek-ai` | DeepSeek models |
-| `tiiuae` | Falcon series |
+| `deepseek-ai` | DeepSeek-R1, DeepSeek-Coder |
+| `tiiuae` | Falcon series (Technology Innovation Institute) |
 | `nvidia` | NVIDIA Nemotron, Minitron |
 | `intel` | Intel Neural Chat, Code Llama fine-tunes |
 
 ---
 
-## Adding Orgs
+## Per-Org Configuration Notes
 
-New orgs are added to `config/orgs.yaml`. Run `repo-hub fetch --org NEW_HANDLE` to pull immediately without waiting for the next scheduled run.
+**Large orgs** (`google`, `microsoft`, `mozilla`, `apache`) use `filter_topics` in `config/orgs.yaml` to limit client-side fetch to relevant repos. Set `max_repos_per_org: 500` cap applies before topic filtering — raise for orgs where you need broader coverage.
+
+**Individual users** (`torvalds`, `axboe`, `brendangregg`, `ggerganov`, `enjoy-digital`, `alexforencich`, `gatecat`, `steveicarus`, `ferrandi`, `casper-hansen`, `TimDettmers`) use `type: user` in `orgs.yaml` to call `/users/{handle}/repos` instead of the org endpoint.
+
+**Specific-repo pinning** — for personal accounts with mostly irrelevant repos, use `filter_repos: [repo1, repo2]` in `orgs.yaml` to pin only the named repos.
 
 ```bash
+# Add a new org and fetch immediately
 repo-hub orgs add NEW_HANDLE --label "Description" --min-stars 20
 repo-hub fetch --org NEW_HANDLE
 repo-hub classify

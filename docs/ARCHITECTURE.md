@@ -1,5 +1,16 @@
 # Architecture & Technical Design
 
+## Implementation Phases
+
+| Phase | Capabilities added | Key new commands |
+|---|---|---|
+| **1 — Foundation** | Fetch · keyword classify · score · embed · annotate · push/restore | `fetch` `classify` `list` `show` `annotate` `digest` |
+| **2 — Intelligence** | Hourly pulse watcher · contributor tracking · LLM classification | `pulse` `contributors` |
+| **3 — Graph** | Kuzu knowledge graph · dep + contributor edges · tech node linking | `graph` |
+| **4 — Synthesis** | RAG query interface · semantic recommendations | `ask` `discover` |
+
+---
+
 ## Core Principle: Ephemeral Compute, Persistent Cloud State
 
 The local machine is a **runner only** — it holds no permanent state. All data lives in three cloud stores. You can `git clone`, run the full pipeline, push everything back, wipe the local machine, and resume identically on any other machine.
@@ -316,18 +327,20 @@ REPO_HUB_CONFIG_DIR=./config
 
 ## Tech Stack
 
-| Component | Technology | Notes |
-|---|---|---|
-| CLI | Click | subcommands, composable |
-| HTTP | httpx (async) | concurrent fetch with rate-limit headers |
-| Terminal UI | rich | tables, trees, panels, progress |
-| Config | PyYAML | human-editable |
-| Database | PostgreSQL via psycopg3 | pgvector + JSONB + FTS |
-| Embeddings | sentence-transformers | local bge-small model |
-| GCS | google-cloud-storage | SDK |
-| Columnar | pyarrow | Parquet export |
-| HuggingFace | huggingface_hub | models + datasets API |
-| TOML | tomli (py<3.11) | pyproject.toml dep parsing |
+| Component | Technology | Phase | Notes |
+|---|---|---|---|
+| CLI framework | Click | 1 | subcommands, help text, composable |
+| HTTP client | httpx (async) | 1 | concurrent fetch, rate-limit headers, backoff |
+| Terminal UI | rich | 1 | tables, trees, progress bars, panels |
+| Config | PyYAML + tomli | 1 | YAML for human-editable, tomli for dep parsing |
+| Database | PostgreSQL via psycopg3 | 1 | pgvector + JSONB + FTS + pg_trgm |
+| Embeddings | sentence-transformers | 1 | local BAAI/bge-small-en-v1.5 (384-dim, ~22MB) |
+| GCS | google-cloud-storage | 1 | delta sync using ETag / object mtime |
+| Columnar | pyarrow | 1 | Parquet export for GCS + DuckDB |
+| HuggingFace | huggingface_hub | 1 | models + datasets API |
+| Signal feeds | feedparser | 2 | RSS/Atom parsing for pulse watcher |
+| LLM classify | anthropic (prompt cache) | 2 | Claude Haiku for top repos (>100 stars) |
+| Knowledge graph | Kuzu (embedded) | 3 | in-process graph DB, exports Parquet |
 
 ---
 
@@ -336,38 +349,47 @@ REPO_HUB_CONFIG_DIR=./config
 ```
 repo-hub/
 ├── README.md
+├── better.md             ← 5 alternative implementation approaches
+├── schema.sql            ← PostgreSQL DDL (run once)
 ├── docs/
 │   ├── ARCHITECTURE.md   ← this file
 │   ├── WORKFLOW.md       ← machine lifecycle, day-to-day use
-│   ├── ONTOLOGY.md       ← 18 domains
-│   ├── ORGS.md           ← ~75 orgs
-│   └── SCORING.md        ← algorithm
+│   ├── ONTOLOGY.md       ← 21 domains with signal keywords
+│   ├── ORGS.md           ← ~95 orgs grouped by category
+│   └── SCORING.md        ← scoring algorithm + hardware domain weighting
 ├── config/
-│   ├── orgs.yaml
-│   ├── ontology.yaml     ← (to be generated)
-│   └── profile.yaml
-├── repo_hub/
+│   ├── orgs.yaml         ← ~95 org handles with per-org overrides
+│   ├── ontology.yaml     ← machine-readable 21-domain taxonomy (to be created)
+│   └── profile.yaml      ← your interest profile + domain weights
+├── repo_hub/             ← Python package
 │   ├── __init__.py
-│   ├── cli.py
+│   ├── cli.py            ← Click entry point, all command groups
 │   ├── fetcher/
-│   │   ├── github_client.py
-│   │   ├── org_fetcher.py
-│   │   ├── dep_scraper.py
-│   │   └── hf_fetcher.py
+│   │   ├── github_client.py    # rate-limited GitHub REST wrapper
+│   │   ├── org_fetcher.py      # paginate org repos, user vs org endpoint
+│   │   ├── dep_scraper.py      # fetch + parse 6 dep file formats
+│   │   ├── hf_fetcher.py       # HuggingFace Hub API
+│   │   └── pulse.py            # RSS/Atom/ArXiv signal scanner (Phase 2)
 │   ├── classifier/
-│   │   ├── ontology_loader.py
-│   │   ├── keyword_matcher.py
-│   │   └── domain_classifier.py
+│   │   ├── ontology_loader.py  # parse ontology.yaml, domain signal weights
+│   │   ├── keyword_matcher.py  # per-domain-group weighted signal matching
+│   │   ├── domain_classifier.py
+│   │   └── llm_classifier.py   # Claude Haiku classification (Phase 2)
 │   ├── scorer/
 │   │   ├── activity_scorer.py
 │   │   ├── relevance_scorer.py
 │   │   └── composite_scorer.py
 │   ├── embedder/
-│   │   └── embedder.py              # bge-small, batched
+│   │   └── embedder.py         # bge-small batched embed, README-aware
+│   ├── graph/                  # Phase 3
+│   │   └── kuzu_builder.py     # build Kuzu graph from dep_edges + contributors
+│   ├── rag/                    # Phase 4
+│   │   ├── retriever.py        # hybrid pgvector + FTS + RRF fusion
+│   │   └── synthesiser.py      # Claude synthesis with citations
 │   ├── storage/
-│   │   ├── cache.py                 # JSON cache TTL logic
-│   │   ├── db.py                    # PostgreSQL (psycopg3) façade
-│   │   └── gcs.py                   # GCS sync (delta upload/download)
+│   │   ├── cache.py            # JSON cache with per-org TTL
+│   │   ├── db.py               # PostgreSQL (psycopg3) façade + migrations
+│   │   └── gcs.py              # GCS delta sync (ETag-based)
 │   └── renderer/
 │       ├── table.py
 │       ├── tree.py

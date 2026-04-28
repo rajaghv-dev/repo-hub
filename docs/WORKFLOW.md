@@ -1,34 +1,40 @@
 # Workflow — Machine Lifecycle
 
-repo-hub is designed around one principle: **the machine is disposable, the data is not**. You clone, run, push, clean. Repeat anywhere.
+repo-hub is built on one principle: **the machine is disposable, the data is not**. You clone, run, push, clean. Resume identically on any other machine.
 
 ---
 
-## Setup on Any New Machine
+## Setup on Any Machine
 
 ```bash
 # 1. Clone
 git clone https://github.com/rajaghv-dev/repo-hub
 cd repo-hub
 
-# 2. Environment — only secrets, no data
+# 2. Secrets only — no data in .env
 cp .env.example .env
-# Edit .env with 4 values:
-#   GITHUB_TOKEN     → https://github.com/settings/tokens  (repo:read scope)
-#   HF_TOKEN         → https://huggingface.co/settings/tokens  (read scope)
-#   DATABASE_URL     → your PostgreSQL connection string (Supabase / Neon)
-#   REPO_HUB_GCS_BUCKET → your GCS bucket name
+# Fill in 5 values:
+#   GITHUB_TOKEN          → github.com/settings/tokens (repo:read scope)
+#   HF_TOKEN              → huggingface.co/settings/tokens (read)
+#   DATABASE_URL          → postgresql://user:pass@host:5432/db (Neon/Supabase)
+#   GOOGLE_APPLICATION_CREDENTIALS → /path/to/service-account.json
+#   REPO_HUB_GCS_BUCKET   → your GCS bucket name
 
 # 3. Install
-pip install -e .          # installs into whatever Python env is active
+pip install -e .
 
-# 4. Verify connections
-repo-hub doctor           # checks GitHub token, HF token, PG connection, GCS access
+# 4. Verify all connections
+repo-hub doctor
+# Checks: GitHub token + rate limit, HF token, PG connection + extensions,
+#         GCS bucket access + write, bge-small model download
 
-# 5. Restore working state from cloud
-repo-hub restore          # pulls GCS cache → data/, verifies PG has data
+# 5. First-time database setup (run once per PG instance)
+repo-hub db init          # runs schema.sql, creates extensions, verifies indexes
 
-# 6. Browse immediately (queries PG — no local data needed)
+# 6. Restore working state from cloud
+repo-hub restore          # pulls GCS cache delta → data/, verifies PG has data
+
+# 7. Browse immediately — all queries hit PG directly, no local data needed
 repo-hub list --top 20
 repo-hub search "MLIR-based inference engine"
 ```
@@ -41,53 +47,97 @@ repo-hub search "MLIR-based inference engine"
 # Run everything, push all results, wipe local data
 repo-hub all --clean
 
-# What this does, in order:
-#  1. restore      pull existing GCS cache to data/ (skip already-cached files)
-#  2. fetch        GitHub API → data/cache/  (skip if cache fresh)
-#  3. hf-fetch     HuggingFace Hub → data/hf/
-#  4. scrape       dep files for repos >50★ → data/deps/
-#  5. classify     ontology keyword match → PostgreSQL
-#  6. embed        bge-small embeddings → pgvector in PG
-#  7. score        composite score → PG
-#  8. digest       compute what changed since last run → PG
-#  9. export       Parquet + summary.json → GCS
-# 10. report       generate REPORT.md
-# 11. push         GCS sync + git commit + git push REPORT.md
-# 12. clean        rm -rf data/   ← machine is clean
+# Step-by-step what happens:
+#  1. restore          pull existing GCS cache to data/ (delta only, skip fresh files)
+#  2. pulse            scan RSS/Atom/ArXiv for signals since last run
+#  3. fetch            GitHub API → data/cache/  (skip if TTL fresh)
+#  4. hf               HuggingFace Hub → data/hf/
+#  5. classify         ontology keyword match → PostgreSQL (upsert, idempotent)
+#  6. embed            bge-small → pgvector in PG (skip already-embedded repos)
+#  7. score            composite score → PG
+#  8. digest           compute what changed → PG digest table
+#  9. export           Parquet + summary.json → GCS
+# 10. report           generate REPORT.md
+# 11. push             GCS delta sync + git commit + git push REPORT.md
+# 12. clean            rm -rf data/   ← machine is clean (only with --clean flag)
+
+# Run without wiping (keep cache for next time)
+repo-hub all
+
+# Quick incremental — only process new/changed repos since last run
+repo-hub all --incremental --clean
+
+# Development / testing — sample 10 repos per org max
+repo-hub all --sample 10
 ```
 
-Run time estimate (with GitHub token, 75 orgs):
-- Fetch: ~15 min (rate-limited, cached on repeat)
-- Dep scrape: ~20 min (async, 5 workers)
-- Classify + embed + score: ~3 min (10k repos, CPU)
-- Export + push: ~2 min
-- **Total: ~40 min first run, ~10 min with warm cache**
+**Run time estimates** (with GitHub token, ~95 orgs):
+
+| Mode | First run | Warm cache |
+|---|---|---|
+| Full | ~60 min | ~15 min |
+| Incremental | ~10 min | ~5 min |
+| Sample (10/org) | ~8 min | ~3 min |
 
 ---
 
-## Incremental / Daily Use
+## Day-to-Day Use
 
 ```bash
-# Quick update — only fetch what changed, re-score, push
-repo-hub all --incremental --clean
-
-# Just browse (no fetch, reads PG directly)
-repo-hub list --domain ai_compiler --min-score 60
+# Browse by domain (queries PG — no local data needed)
+repo-hub list --domain eda_sim --min-score 60
+repo-hub list --domain fpga --domain interconnect --active --top 30
+repo-hub list --domain soc_riscv --sort stars
 repo-hub list --status bookmarked
-repo-hub search "FPGA HLS inference"
-repo-hub show intel/openvino --explain
+repo-hub list --org llvm --org iree-org
 
-# Annotate a repo (writes to PG immediately)
-repo-hub annotate microsoft/onnxruntime \
+# Semantic search (pgvector)
+repo-hub search "MLIR compiler targeting AMD GPU"
+repo-hub search "user-space PCIe DMA Alveo FPGA"
+repo-hub search "open RISC-V SoC with Linux support"
+
+# RAG synthesis (Phase 4)
+repo-hub ask "What are my options for PCIe DMA from user space to an Alveo card?"
+repo-hub ask "Which MLIR dialects target AMD GPU backends?"
+repo-hub ask "What changed in the ROCm ecosystem this month?"
+repo-hub ask "Which repos span both EDA simulation and AI compilers?"
+
+# Recommendations based on your bookmarks (Phase 4)
+repo-hub discover
+
+# Knowledge graph (Phase 3)
+repo-hub graph llvm/circt          # deps, contributors, connected repos
+repo-hub graph --domain eda_sim    # domain sub-graph
+
+# Detailed repo view
+repo-hub show ucb-bar/chipyard --explain
+repo-hub show enjoy-digital/litepcie
+
+# Annotate (writes to PG immediately, visible on all machines)
+repo-hub annotate spdk/spdk \
     --status in-use \
-    --tags "inference,onnx,ep" \
-    --note "Check EP plugin API for custom hardware backends" \
-    --project suryaos-laptop
+    --tags "pcie,dma,nvme,userspace" \
+    --note "Used in Alveo PCIe DMA path. Check XDMA integration." \
+    --project alveo-UCards
 
-# See what changed since last run
+repo-hub annotate llvm/circt \
+    --status bookmarked \
+    --tags "mlir,fpga,eda" \
+    --note "FIRRTL lowering passes — follow for HLS→MLIR pipeline"
+
+# Weekly digest
 repo-hub digest
-repo-hub digest --since 7d       # last 7 days
-repo-hub digest --domain fpga    # only FPGA domain changes
+repo-hub digest --since 7d
+repo-hub digest --since 7d --domain soc_riscv
+repo-hub digest --since 7d --domain eda_sim --domain fpga
+
+# Stats
+repo-hub stats
+repo-hub stats --domain ai_compiler
+repo-hub stats --org chipsalliance
+
+# Lightweight hourly signal scan (Phase 2)
+repo-hub pulse                     # checks RSS feeds + ArXiv, no token needed
 ```
 
 ---
@@ -96,47 +146,55 @@ repo-hub digest --domain fpga    # only FPGA domain changes
 
 ### PostgreSQL
 - All repos classified with scores, domain assignments, matched signals
-- pgvector embeddings for semantic search
-- Dependency graph edges
+- pgvector embeddings for semantic search (`repo-hub search`, `repo-hub ask`)
+- Dependency graph edges (cross-repo relationships)
+- Contributor graph (phase 2)
+- Signal queue (pulse events, phase 2)
+- Star history per repo (trend detection)
 - Your annotations and notes
 - Digest log of changes
 
 ### GCS
 ```
 gs://your-bucket/repo-hub/
-├── cache/orgs/          ← raw GitHub API responses
-├── cache/deps/          ← scraped dep files
-├── hf/                  ← HuggingFace model cards
-├── exports/YYYY-MM-DD/  ← repos.parquet, repos.csv, summary.json
-└── snapshots/           ← point-in-time PG table dumps
+├── cache/
+│   ├── orgs/          {org}.json  — raw GitHub API (24h TTL)
+│   └── deps/          {org}/{repo}/{file}  — scraped dep files
+├── hf/
+│   ├── models/        {org}/{model}/README.md
+│   └── datasets/      {org}/{dataset}/README.md
+├── exports/
+│   └── {YYYY-MM-DD}/
+│       ├── repos.parquet       # columnar, queryable via DuckDB
+│       ├── repos.csv
+│       └── summary.json
+└── snapshots/
+    └── {YYYY-MM-DD}.csv        # point-in-time PG table dump
 ```
 
 ### GitHub
-- `REPORT.md` auto-committed (top repos per domain, domain stats, new finds)
-- Any changes you made to `config/profile.yaml` or `config/orgs.yaml`
+- `REPORT.md` auto-committed (top repos per domain, new repos, ecosystem highlights)
+- Config changes (`config/profile.yaml`, `config/orgs.yaml`) if you edited them
 
 ### Local
 - Nothing. Clean.
 
 ---
 
-## DuckDB on Parquet (analytics without PG)
-
-The Parquet export in GCS is queryable directly with DuckDB — no PostgreSQL needed:
+## DuckDB on GCS Parquet (analytics without PG)
 
 ```python
 import duckdb
 con = duckdb.connect()
 con.execute("INSTALL httpfs; LOAD httpfs;")
-con.execute("SET gcs_credential_chain='workload_identity';")
 
-# Query directly from GCS
+# Query Parquet directly from GCS — no PG needed
 con.execute("""
-    SELECT org, COUNT(*) as repos, AVG(score) as avg_score
+    SELECT org, COUNT(*) AS repos, ROUND(AVG(score), 1) AS avg_score,
+           ARRAY_AGG(name ORDER BY score DESC)[1:3] AS top_repos
     FROM 'gs://your-bucket/repo-hub/exports/2025-04-28/repos.parquet'
-    WHERE score > 0.5
-    GROUP BY org
-    ORDER BY avg_score DESC
+    WHERE score > 50
+    GROUP BY org ORDER BY avg_score DESC LIMIT 20
 """).df()
 ```
 
@@ -144,89 +202,113 @@ Useful for ad-hoc analysis or when you don't have the `.env` with `DATABASE_URL`
 
 ---
 
-## Shared Access (multiple machines / team)
-
-Since all state is in cloud:
-- Multiple machines can run `repo-hub list` / `annotate` simultaneously against the same PG
-- Annotations from one machine are immediately visible on another (PG is the single source)
-- Concurrent `repo-hub all` runs should be avoided — use `--dry-run` on secondary machines if PG already has fresh data
-- The GCS cache is safe for concurrent reads; writes use object-level replace (idempotent)
-
----
-
-## First-time PostgreSQL Setup
-
-Run `schema.sql` once against your PostgreSQL instance:
+## PostgreSQL Setup (first time on a new PG instance)
 
 ```bash
-# Supabase (via their SQL editor, or psql)
-psql $DATABASE_URL -f schema.sql
+# Option A: Neon (recommended — no auto-pause on free tier)
+# Create project at neon.tech, copy connection string to DATABASE_URL
 
-# Or with repo-hub
-repo-hub db init          # runs schema.sql, verifies extensions are available
+# Option B: Supabase
+# Create project at supabase.com, use the "URI" connection string
+# Note: free tier pauses after 7 days of inactivity
+
+# Option C: local Docker
+docker run -d -e POSTGRES_PASSWORD=pw -p 5432:5432 ankane/pgvector
+
+# Run schema
+repo-hub db init
+# Or manually:
+psql $DATABASE_URL -f schema.sql
 ```
 
-Required PostgreSQL extensions (pre-installed on Supabase/Neon):
+**Required PostgreSQL extensions** (pre-installed on Neon and Supabase):
 - `vector` (pgvector)
-- `pg_trgm` (trigram fuzzy search)
+- `pg_trgm`
 - `uuid-ossp`
 
 ---
 
-## Scheduled Runs
-
-For automatic weekly refresh, run `repo-hub all --clean` in any CI/CD or cron environment:
+## Scheduled Runs — GitHub Actions
 
 ```yaml
-# GitHub Actions: .github/workflows/refresh.yml
+# .github/workflows/refresh.yml
 name: Weekly repo-hub refresh
 on:
   schedule:
-    - cron: '0 2 * * 0'   # every Sunday 02:00 UTC
-  workflow_dispatch:        # manual trigger
+    - cron: '0 2 * * 0'     # every Sunday 02:00 UTC
+  workflow_dispatch:          # manual trigger anytime
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
+
+      - name: Cache HuggingFace model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-bge-small-v1
+
       - run: pip install -e .
+
       - run: repo-hub all --clean
         env:
-          GITHUB_TOKEN:          ${{ secrets.GITHUB_TOKEN }}
-          HF_TOKEN:              ${{ secrets.HF_TOKEN }}
-          DATABASE_URL:          ${{ secrets.DATABASE_URL }}
-          REPO_HUB_GCS_BUCKET:   ${{ secrets.REPO_HUB_GCS_BUCKET }}
+          GITHUB_TOKEN:                    ${{ secrets.GITHUB_TOKEN }}
+          HF_TOKEN:                        ${{ secrets.HF_TOKEN }}
+          DATABASE_URL:                    ${{ secrets.DATABASE_URL }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCS_SA_JSON_PATH }}
+          REPO_HUB_GCS_BUCKET:             ${{ secrets.REPO_HUB_GCS_BUCKET }}
+
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: weekly repo-hub refresh"
+          commit_message: "chore: weekly repo-hub refresh [skip ci]"
           file_pattern: REPORT.md
 ```
 
-This means **you never have to run it manually** — it updates itself every Sunday and pushes `REPORT.md` to GitHub automatically.
+This means **you never have to run it manually** — it self-updates every Sunday.
+
+**GitHub Actions GCS authentication:** Store the service account JSON as a GitHub secret (`GCS_SA_JSON`). In the workflow, write it to a temp file and set `GOOGLE_APPLICATION_CREDENTIALS` to that path:
+
+```yaml
+      - name: Write GCS credentials
+        run: |
+          echo '${{ secrets.GCS_SA_JSON }}' > /tmp/gcs-sa.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-sa.json" >> $GITHUB_ENV
+```
 
 ---
 
-## Commands Reference
+## Command Reference
 
-| Command | Needs local data? | Needs PG? | Needs GCS? |
-|---|---|---|---|
-| `list` | No | Yes | No |
-| `show` | No | Yes | No |
-| `search` | No | Yes (pgvector) | No |
-| `annotate` | No | Yes | No |
-| `digest` | No | Yes | No |
-| `stats` | No | Yes | No |
-| `fetch` | Yes (writes) | No | Yes (writes) |
-| `classify` | Yes (reads) | Yes (writes) | No |
-| `embed` | No | Yes (writes) | No |
-| `score` | No | Yes (writes) | No |
-| `export` | No | Yes (reads) | Yes (writes) |
-| `restore` | Yes (writes) | No | Yes (reads) |
-| `push` | Yes (reads) | No | Yes (writes) |
-| `clean` | Yes (deletes) | No | No |
-| `all` | Yes (temp) | Yes | Yes |
-| `db init` | No | Yes | No |
-| `doctor` | No | Yes | Yes |
+| Command | Needs `data/`? | Needs PG? | Needs GCS? | Notes |
+|---|---|---|---|---|
+| `doctor` | No | Yes | Yes | Run first on any new machine |
+| `db init` | No | Yes | No | Run once per PG instance |
+| `restore` | Writes | No | Yes | Delta pull — fast on warm cache |
+| `fetch` | Writes | No | Writes | GitHub API pagination |
+| `hf` | Writes | No | Writes | HuggingFace Hub API |
+| `pulse` | No | Writes | No | Lightweight, no token needed |
+| `classify` | Reads | Writes | No | Idempotent upsert |
+| `embed` | No | Writes | No | Reads PG, writes pgvector |
+| `score` | No | Writes | No | Reads + updates PG |
+| `digest` | No | Writes | No | Reads PG, computes delta |
+| `export` | No | Reads | Writes | Parquet + CSV + JSON |
+| `report` | No | Reads | No | Generates REPORT.md locally |
+| `push` | Reads | No | Writes | GCS delta sync + git push |
+| `clean` | Deletes | No | No | Safe — GCS + PG are authoritative |
+| `all` | Temp | Yes | Yes | Full pipeline |
+| `list` | No | Yes | No | |
+| `show` | No | Yes | No | |
+| `search` | No | Yes | No | pgvector semantic search |
+| `ask` | No | Yes | No | RAG synthesis (Phase 4) |
+| `discover` | No | Yes | No | pgvector recommendations (Phase 4) |
+| `graph` | No | Yes | No | Kuzu graph queries (Phase 3) |
+| `annotate` | No | Yes | No | Immediate PG write |
+| `stats` | No | Yes | No | |
+| `orgs` | No | No | No | Edits config/orgs.yaml |
+| `ontology` | No | No | No | Reads config/ontology.yaml |
+| `profile` | No | No | No | Edits config/profile.yaml |

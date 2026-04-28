@@ -145,12 +145,77 @@ CREATE INDEX IF NOT EXISTS idx_hf_score           ON hf_repos (score DESC);
 CREATE INDEX IF NOT EXISTS idx_hf_tags            ON hf_repos USING GIN (tags);
 CREATE INDEX IF NOT EXISTS idx_hf_domains         ON hf_repos USING GIN (assigned_domains);
 
--- Vector index (HNSW — fast approximate cosine similarity)
--- Created after embeddings are populated (expensive to build on empty table)
--- Run: repo-hub db build-vector-index   (or manually):
+-- Vector index — built automatically by `repo-hub embed` after first batch
+-- (HNSW is expensive to build on an empty table; built once data exists)
 -- CREATE INDEX idx_embeddings_hnsw ON repo_embeddings
 --     USING hnsw (embedding vector_cosine_ops)
 --     WITH (m = 16, ef_construction = 64);
+
+-- ── star_history ──────────────────────────────────────────────────────────────
+-- One row per repo per weekly run — enables trending and velocity trends
+CREATE TABLE IF NOT EXISTS star_history (
+    repo_id     TEXT        REFERENCES repos(id) ON DELETE CASCADE,
+    stars       INTEGER     NOT NULL,
+    recorded_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (repo_id, recorded_at)
+);
+CREATE INDEX IF NOT EXISTS idx_star_history_repo ON star_history (repo_id, recorded_at DESC);
+
+-- ── signals ───────────────────────────────────────────────────────────────────
+-- Pulse architecture (Phase 2): events from RSS/Atom/ArXiv feeds
+CREATE TABLE IF NOT EXISTS signals (
+    id           BIGSERIAL   PRIMARY KEY,
+    source       TEXT        NOT NULL,   -- github_events|github_release|arxiv|huggingface
+    org          TEXT,
+    repo_id      TEXT        REFERENCES repos(id) ON DELETE SET NULL,
+    signal_type  TEXT        NOT NULL,   -- new_repo|new_release|new_paper|star_spike|contributor_new_repo
+    payload      JSONB       DEFAULT '{}',
+    processed    BOOLEAN     DEFAULT FALSE,
+    detected_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_signals_unprocessed ON signals (processed, detected_at DESC) WHERE NOT processed;
+CREATE INDEX IF NOT EXISTS idx_signals_type        ON signals (signal_type);
+CREATE INDEX IF NOT EXISTS idx_signals_org         ON signals (org);
+
+-- ── contributors ──────────────────────────────────────────────────────────────
+-- Contributor intelligence (Phase 2): track people, not just repos
+CREATE TABLE IF NOT EXISTS contributors (
+    github_login     TEXT        PRIMARY KEY,
+    display_name     TEXT,
+    affiliated_orgs  JSONB       DEFAULT '[]',  -- inferred from profile + repos
+    domain_tags      JSONB       DEFAULT '[]',  -- inferred from repos contributed to
+    h_index_proxy    REAL        DEFAULT 0,     -- weighted avg score of contributed repos
+    last_seen_at     TIMESTAMPTZ,
+    fetched_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_contributors_h_index ON contributors (h_index_proxy DESC);
+CREATE INDEX IF NOT EXISTS idx_contributors_domains ON contributors USING GIN (domain_tags);
+CREATE INDEX IF NOT EXISTS idx_contributors_orgs    ON contributors USING GIN (affiliated_orgs);
+
+-- ── contributor_repo_edges ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS contributor_repo_edges (
+    github_login  TEXT        REFERENCES contributors(github_login) ON DELETE CASCADE,
+    repo_id       TEXT        REFERENCES repos(id) ON DELETE CASCADE,
+    commits       INTEGER     DEFAULT 0,
+    first_commit  TIMESTAMPTZ,
+    last_commit   TIMESTAMPTZ,
+    is_maintainer BOOLEAN     DEFAULT FALSE,
+    PRIMARY KEY (github_login, repo_id)
+);
+CREATE INDEX IF NOT EXISTS idx_contrib_edges_login ON contributor_repo_edges (github_login);
+CREATE INDEX IF NOT EXISTS idx_contrib_edges_repo  ON contributor_repo_edges (repo_id);
+
+-- ── schema_version ────────────────────────────────────────────────────────────
+-- Migration tracking — checked by `repo-hub db init`
+CREATE TABLE IF NOT EXISTS schema_version (
+    version     TEXT        NOT NULL,
+    description TEXT,
+    applied_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (version)
+);
+INSERT INTO schema_version (version, description)
+VALUES ('001', 'Initial schema: repos, embeddings, user_data, dep_edges, digest, hf_repos, star_history, signals, contributors')
+ON CONFLICT DO NOTHING;
 
 -- ── useful views ──────────────────────────────────────────────────────────────
 
@@ -197,3 +262,35 @@ SELECT
 FROM dep_edges e
 JOIN repos rf ON rf.id = e.from_repo
 LEFT JOIN repos rt ON rt.id = e.resolved_repo;
+
+CREATE OR REPLACE VIEW v_trending AS
+SELECT
+    r.id, r.org, r.name, r.score,
+    r.assigned_domains,
+    sh_now.stars  AS stars_now,
+    sh_prev.stars AS stars_4w_ago,
+    (sh_now.stars - sh_prev.stars) AS star_delta_4w
+FROM repos r
+JOIN star_history sh_now  ON sh_now.repo_id  = r.id
+JOIN star_history sh_prev ON sh_prev.repo_id = r.id
+WHERE sh_now.recorded_at  = (SELECT MAX(recorded_at) FROM star_history WHERE repo_id = r.id)
+  AND sh_prev.recorded_at = (
+        SELECT MAX(recorded_at) FROM star_history
+        WHERE repo_id = r.id AND recorded_at < NOW() - INTERVAL '28 days'
+      )
+  AND r.is_archived = FALSE
+ORDER BY star_delta_4w DESC;
+
+CREATE OR REPLACE VIEW v_contributor_domains AS
+SELECT
+    c.github_login,
+    c.h_index_proxy,
+    ARRAY_AGG(DISTINCT r.org ORDER BY r.org)           AS active_orgs,
+    ARRAY_AGG(DISTINCT d ORDER BY d)                   AS active_domains
+FROM contributors c
+JOIN contributor_repo_edges e ON e.github_login = c.github_login
+JOIN repos r                  ON r.id = e.repo_id
+JOIN LATERAL jsonb_array_elements_text(r.assigned_domains) d ON TRUE
+WHERE e.last_commit > NOW() - INTERVAL '180 days'
+GROUP BY c.github_login, c.h_index_proxy
+ORDER BY c.h_index_proxy DESC;

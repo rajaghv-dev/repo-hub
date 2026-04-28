@@ -1,6 +1,6 @@
 # Scoring Algorithm
 
-Every repo gets a **final score** between 0 and 100 composed of four independent sub-scores. The sub-scores are computed separately and then combined using configurable weights.
+Every repo gets a **final score** between 0 and 100 composed of four independent sub-scores. Sub-scores are computed separately and combined using configurable weights.
 
 ---
 
@@ -11,13 +11,14 @@ Every repo gets a **final score** between 0 and 100 composed of four independent
 Measures how alive and healthy the project is, independent of domain relevance.
 
 ```
-recency   = max(0,  1 - days_since_last_push / 730)
+recency   = max(0, 1 - days_since_last_push / 730)
             # linear decay over 2 years; archived repos → 0
 
-star_vel  = stars / max(1, repo_age_days / 30)          # stars per month
-star_score = log10(1 + star_vel) / log10(1 + 500)       # normalised; 500 stars/mo = 1.0
+star_vel  = stars / max(1, repo_age_days / 30)        # stars per month
+star_score = log10(1 + min(star_vel, 1000)) / log10(1001)
+             # clamped at 1000 stars/mo to handle viral repos
 
-issue_sig = min(1.0, open_issues / 50)                  # 50+ open issues = active community
+issue_sig = min(1.0, open_issues / 50)
 
 S_activity = 0.50 × recency + 0.35 × star_score + 0.15 × issue_sig
 ```
@@ -34,9 +35,29 @@ S_activity = 0.50 × recency + 0.35 × star_score + 0.15 × issue_sig
 
 ### S_ontology — Domain Match (weight: 0.30)
 
-Measures how strongly a repo matches the ontology's signal definitions.
+Measures how strongly a repo matches the ontology's signal definitions. Signal weights differ by domain group — hardware repos rarely set GitHub topics.
 
-For each domain D:
+#### Standard signal weights (AI/ML + Infrastructure domains)
+
+| Signal source | Weight |
+|---|---|
+| Topics | 0.40 |
+| Description | 0.35 |
+| Deps | 0.15 |
+| Filenames | 0.10 |
+
+#### Hardware domain signal weights
+
+Applies to: `os_kernel` · `drivers_firmware` · `fpga` · `eda_sim` · `interconnect` · `soc_riscv`
+
+| Signal source | Weight | Rationale |
+|---|---|---|
+| Topics | **0.15** | Hardware repos rarely set GitHub topics |
+| Description | **0.40** | Description is the most reliable text signal |
+| Deps | **0.10** | C/C++ build deps are harder to parse reliably |
+| Filenames | **0.35** | File extensions (*.v, *.sv, *.cu, *.dts) are the strongest signal |
+
+#### Per-domain confidence formula
 
 ```
 topic_conf(D)    = matched_topics(D)    / total_signals.topics(D)
@@ -44,40 +65,46 @@ desc_conf(D)     = matched_desc_kw(D)   / total_signals.description(D)
 dep_conf(D)      = matched_deps(D)      / total_signals.deps(D)
 file_conf(D)     = matched_filenames(D) / total_signals.filenames(D)
 
-domain_score(D) = 0.40 × topic_conf
-                + 0.35 × desc_conf
-                + 0.15 × dep_conf
-                + 0.10 × file_conf
+domain_score(D) = W_topics  × topic_conf
+                + W_desc    × desc_conf
+                + W_deps    × dep_conf
+                + W_files   × file_conf
+                # where W_* come from the domain's group (standard or hardware)
 
-# A domain is assigned if domain_score(D) >= 0.15 (threshold in config)
-assigned_domains = [D for D if domain_score(D) >= threshold]
-
+assigned_domains = [D for D if domain_score(D) >= 0.15]   # threshold configurable
 S_ontology = max(domain_score(D) for D in assigned_domains)
-             # best domain match, not sum (focused repos should not be penalised)
 ```
 
 ---
 
 ### S_deps — Dependency Match (weight: 0.20)
 
-Measures how many recognisable tech-stack dependencies the repo uses, as extracted from its dependency files.
+Measures how many recognisable tech-stack dependencies the repo uses, extracted from dependency files.
 
 ```
-Files scraped (per repo):
+Files scraped (repos with > 50 stars):
   requirements.txt · requirements-*.txt
   pyproject.toml  · setup.cfg · setup.py
-  CMakeLists.txt  (find_package / FetchContent)
+  CMakeLists.txt  (find_package / FetchContent calls)
   package.json    (dependencies + devDependencies)
   Cargo.toml      ([dependencies] section)
   go.mod          (require block)
 
-dep_hits = count of extracted deps that appear in any domain's signals.deps list
+dep_hits = count of extracted deps matching any domain's signals.deps list
 
-S_deps = min(1.0, dep_hits / 10)
-         # 10 matching deps = perfect score; configurable as dep_saturation
+S_deps = min(1.0, dep_hits / dep_saturation)
 ```
 
-Only repos with **> 50 stars** have dep files scraped (configurable). Repos without scraped deps get S_deps = 0.
+**Per-domain dep saturation** (hits needed for full score):
+
+| Domain group | Saturation | Rationale |
+|---|---|---|
+| Hardware (`eda_sim`, `fpga`, `soc_riscv`, `interconnect`) | 3 | C/C++ projects have few Python-parseable deps |
+| Compute (`gpu_runtime`, `cpu_inference`, `ai_compiler`) | 6 | Mix of Python and C++ deps |
+| AI/ML (`quantization`, `llm_inference`, `ml_training`, `hf_ecosystem`) | 12 | Python-heavy, many detectable deps |
+| Infrastructure (`databases`, `agentic`, `observability`) | 10 | Standard |
+
+Only repos with **> 50 stars** have dep files scraped (configurable via `dep_scrape_min_stars` in `config/orgs.yaml`). Repos without scraped deps get S_deps = 0.
 
 ---
 
@@ -86,20 +113,19 @@ Only repos with **> 50 stars** have dep files scraped (configurable). Repos with
 Personalises the score to your declared interest profile in `config/profile.yaml`.
 
 ```
-# For each assigned domain D:
 domain_weight(D) = profile.domain_weights[D]    # 0.0–5.0, default 1.0
 
-# Bonuses (additive, capped)
 tech_bonus  = 0.20  if any matched tech_node is in profile.tech_interests
 org_bonus   = 0.10  if repo.org in profile.priority_orgs
+lang_bonus  = 0.05  if repo.language in profile.preferred_languages
 
 best_weight = max(domain_weight(D) for D in assigned_domains)
-norm_weight = min(1.0, best_weight / 3.0)       # normalise to [0, 1]; 3.0 = max useful weight
+norm_weight = min(1.0, best_weight / 3.0)
 
-S_profile = min(1.0, norm_weight + tech_bonus + org_bonus)
+S_profile = min(1.0, norm_weight + tech_bonus + org_bonus + lang_bonus)
 ```
 
-Setting a domain weight to `0.0` in your profile hard-excludes all repos in that domain from results.
+Setting a domain weight to `0.0` **hard-excludes** all repos in that domain.
 
 ---
 
@@ -111,91 +137,129 @@ FINAL = W_activity × S_activity
       + W_deps     × S_deps
       + W_profile  × S_profile
 
-Default weights:
+Default weights (must sum to 1.0):
   W_activity  = 0.20
   W_ontology  = 0.30
   W_deps      = 0.20
   W_profile   = 0.30
-  (sum = 1.00)
 
-Displayed as: round(FINAL × 100, 1)  →  score in [0.0, 100.0]
+Displayed as: round(FINAL × 100, 1)   →  score in [0.0, 100.0]
 ```
 
-Weights are configurable in `config/profile.yaml` under `scoring_weights`.
+Weights are overridable in `config/profile.yaml` under `scoring_weights`.
 
 ---
 
 ## Hard Filters (applied before scoring)
 
-Repos matching any of these conditions are excluded entirely:
+Repos matching any condition below are excluded entirely and never scored:
 
 | Filter | Config key |
 |---|---|
 | `is_fork == true` | `defaults.include_forks: false` |
 | `stars < min_stars` | `defaults.min_stars: 10` |
 | No OSI-approved license | `defaults.osi_only: true` |
-| All assigned domain weights == 0.0 | profile.yaml |
+| License not detected but stars < 100 | Heuristic — large repos often lack detected licenses |
+| All assigned domain weights == 0.0 | `profile.domain_weights` |
+
+**License note:** GitHub license detection fails on ~25% of repos that are genuinely open source. Repos with `stars > 100` and `license: null` are passed through for manual review rather than silently excluded.
 
 ---
 
-## Score Explanation (`repo-hub show`)
+## Score Explanation
 
-Every repo carries a full `score_breakdown` in the database:
+Every classified repo stores a full breakdown accessible via `repo-hub show ORG/REPO --explain`:
 
 ```json
 {
-  "score": 78.4,
-  "s_activity": 0.81,
-  "s_ontology": 0.72,
-  "s_deps": 0.60,
-  "s_profile": 0.90,
-  "assigned_domains": ["ai_compiler", "gpu_runtime"],
+  "score": 81.2,
+  "s_activity": 0.84,
+  "s_ontology": 0.76,
+  "s_deps": 0.67,
+  "s_profile": 0.95,
+  "assigned_domains": ["eda_sim", "ai_compiler", "fpga"],
+  "primary_domain": "eda_sim",
   "matched_signals": {
-    "ai_compiler": ["mlir (topic)", "MLIR (description)", "iree-compiler (dep)"],
-    "gpu_runtime":  ["cuda (topic)", "*.cu (filename)"]
+    "eda_sim":     ["rtl-simulation (topic)", "synthesis (desc)", "sim_main.cpp (file)"],
+    "ai_compiler": ["mlir (topic)", "MLIR dialect (desc)", "iree-compiler (dep)"],
+    "fpga":        ["fpga (topic)", "*.xdc (file)"]
   },
   "extracted_deps": {
-    "requirements.txt": ["torch", "iree-compiler", "iree-runtime"],
-    "CMakeLists.txt":   ["CUDA", "LLVM", "MLIR"]
+    "CMakeLists.txt": ["LLVM", "MLIR", "CIRCT"],
+    "requirements.txt": ["cocotb", "pymtl3"]
+  },
+  "activity_detail": {
+    "days_since_push": 12,
+    "star_velocity_monthly": 120,
+    "open_issues": 34
   }
 }
 ```
 
-`repo-hub show intel/llvm-project --explain` renders this as a rich panel in the terminal.
+---
+
+## Phase 2: LLM Classification
+
+In phase 2, `S_ontology` for repos with > 100 stars is replaced by an LLM-generated classification using Claude Haiku with prompt caching:
+
+```
+LLM output (replaces S_ontology for top repos):
+  primary_domain     → replaces keyword domain match
+  secondary_domains  → replaces multi-domain assignment
+  confidence         → replaces domain_score formula
+  tech_nodes         → validated against dep_edges
+  relevance_note     → "why this matters for your work" (new field, no keyword equivalent)
+  problem_solved     → stored in repos table, searchable
+  search_terms       → added to FTS index
+```
+
+Cost: ~$0.00033 per repo → ~$3 for 10,000 repos per run (quarterly). Use Anthropic Batch API for 50% cost reduction on the initial bulk classification.
 
 ---
 
-## Tuning the Score
+## Tuning Your Profile
 
-Common adjustments in `config/profile.yaml`:
+Edit `config/profile.yaml` to adjust what scores high:
 
 ```yaml
-# Boost compiler + GPU domains, reduce agentic
+# Boost hardware/compiler domains, reduce agentic/browser
 domain_weights:
-  ai_compiler:   3.0
-  gpu_runtime:   2.5
-  quantization:  2.0
-  agentic:       0.3   # still shows up, just ranked low
+  eda_sim:      3.0   # very important for FPGA toolchain work
+  fpga:         3.0
+  interconnect: 2.8   # PCIe/NVMe work
+  soc_riscv:    2.5
+  ai_compiler:  2.8   # MLIR/Triton/IREE
+  gpu_runtime:  2.8   # CUDA/ROCm
+  os_kernel:    2.5
+  agentic:      0.5   # less important
+  browser_wasm: 0.8
 
-# Override composite weights if activity matters more to you
+# Override composite weights
 scoring_weights:
-  W_activity: 0.30
-  W_ontology: 0.25
-  W_deps:     0.20
-  W_profile:  0.25
+  W_activity:  0.20
+  W_ontology:  0.30
+  W_deps:      0.20
+  W_profile:   0.30
 
-# Declare your tech stack — boosts S_profile for matching repos
+# Declare your tech stack — boosts S_profile
 tech_interests:
   - mlir
+  - circt
+  - iree
   - rocm
   - triton
-  - iree
-  - onnxruntime
+  - verilator
+  - cocotb
+  - litex
+  - spdk
 
-# Priority orgs get a small boost regardless of domain
+# Priority orgs
 priority_orgs:
   - openxla
   - iree-org
-  - intel
-  - tenstorrent
+  - llvm        # for CIRCT
+  - YosysHQ
+  - cocotb
+  - chipsalliance
+  - enjoy-digital
 ```
