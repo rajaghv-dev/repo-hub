@@ -254,6 +254,73 @@ orgs:
   - handle: netdata
     label: Netdata
 
+  # --- EDA / RTL Simulation / HLS ---
+  - handle: YosysHQ
+    label: YosysHQ (Yosys · nextpnr · SymbiYosys)
+  - handle: cocotb
+    label: cocotb (Python RTL verification)
+  - handle: verilator
+    label: Verilator
+  - handle: ghdl
+    label: GHDL (VHDL simulator)
+  - handle: steveicarus
+    label: Steve Icarus (Icarus Verilog)
+    type: user
+  - handle: calyxir
+    label: Calyx IR (accelerator generator IR)
+  - handle: ferrandi
+    label: PandA-Bambu HLS (PoliMi)
+    type: user
+  - handle: pymtl
+    label: PyMTL3 (Python HW modelling)
+  - handle: UCSBarchlab
+    label: UCSB Arch Lab (PyRTL)
+  - handle: lnis-uofu
+    label: OpenFPGA (UOFU)
+  - handle: f4pga
+    label: F4PGA (open FPGA toolchain)
+  - handle: enjoy-digital
+    label: Enjoy Digital (LiteX · LitePCIe · LiteEth)
+    type: user
+  - handle: litex-hub
+    label: LiteX Hub (board support · cores)
+  - handle: gatecat
+    label: gatecat (prjoxide · prjtrellis)
+    type: user
+  - handle: alexforencich
+    label: Alex Forencich (Verilog PCIe · Ethernet · AXI)
+    type: user
+
+  # --- PCIe / CXL / NVMe / Interconnect ---
+  - handle: spdk
+    label: SPDK (user-space NVMe · PCIe)
+  - handle: ofiwg
+    label: OpenFabrics (libfabric · RDMA)
+  - handle: linux-nvme
+    label: NVMe CLI
+  - handle: linux-rdma
+    label: RDMA core (rdma-core)
+  - handle: pmem
+    label: PMDK (Persistent Memory)
+
+  # --- SoC / RISC-V ---
+  - handle: chipsalliance
+    label: CHIPS Alliance (Chisel · FIRRTL · Rocket · F4PGA)
+  - handle: openhwgroup
+    label: OpenHW Group (CV32E40P · CVA6 · CORE-V)
+  - handle: ucb-bar
+    label: UC Berkeley (Chipyard · BOOM · Hammer)
+  - handle: pulp-platform
+    label: PULP Platform (CVA6 · Cheshire · Bender)
+  - handle: lowrisc
+    label: lowRISC (OpenTitan · ibex)
+  - handle: riscv
+    label: RISC-V International (ISA spec)
+  - handle: riscv-boom
+    label: Berkeley OOO Machine (BOOM)
+  - handle: riscv-software-src
+    label: RISC-V Software (Spike · riscv-tests)
+
 # HuggingFace Hub orgs (model + dataset tracking via HF API)
 hf_orgs:
   - handle: huggingface
