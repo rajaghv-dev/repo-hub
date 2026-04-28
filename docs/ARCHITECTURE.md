@@ -1,8 +1,40 @@
 # Architecture & Technical Design
 
-## Overview
+## Core Principle: Ephemeral Compute, Persistent Cloud State
 
-repo-hub is a local-first CLI tool with cloud-backed storage. The core loop is: **fetch → classify → store → annotate → browse**. All classification and scoring runs locally. GCS is used for durability, sharing, and scale. HuggingFace Hub is a first-class data source alongside GitHub.
+The local machine is a **runner only** — it holds no permanent state. All data lives in three cloud stores. You can `git clone`, run the full pipeline, push everything back, wipe the local machine, and resume identically on any other machine.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Any Machine  (ephemeral)                           │
+│                                                     │
+│   git clone · pip install -e . · .env (tokens)     │
+│   ↓                                                 │
+│   repo-hub restore   ← pulls GCS cache             │
+│   repo-hub all       → fetch + classify + embed     │
+│                        + score + push               │
+│   repo-hub clean     → data/ deleted                │
+└─────────────────────────────────────────────────────┘
+         ↕ GitHub       ↕ GCS           ↕ PostgreSQL
+┌────────────────┐ ┌──────────────┐ ┌──────────────────┐
+│ Code · config  │ │ Raw cache    │ │ Repos · scores   │
+│ ontology       │ │ Dep files    │ │ Embeddings       │
+│ profile        │ │ Parquet      │ │ Dep graph        │
+│ REPORT.md      │ │ DB exports   │ │ Your annotations │
+└────────────────┘ └──────────────┘ └──────────────────┘
+  Control plane      Blob store        Data plane
+```
+
+---
+
+## What Lives Where
+
+| Store | Contents | Why here |
+|---|---|---|
+| **GitHub** | Code, `config/`, `docs/`, auto-generated `REPORT.md` | Version-controlled, machine-independent entry point |
+| **PostgreSQL** (Supabase/Neon) | `repos`, `user_data`, `dep_edges`, `repo_embeddings`, `hf_repos`, `digest` | Queryable from any machine with no local data, pgvector semantic search |
+| **GCS** | `cache/orgs/*.json`, `cache/deps/`, `hf/`, `exports/*.parquet`, `snapshots/` | Large blobs unsuitable for git or PG; cheap, durable object storage |
+| **Local `data/`** | Temporary scratch only | Deleted after `repo-hub push --clean`; never the source of truth |
 
 ---
 
@@ -15,130 +47,114 @@ graph TB
         HF[HuggingFace Hub]
     end
 
-    subgraph Fetcher
-        OF[org_fetcher.py<br/>paginate org repos]
-        DS[dep_scraper.py<br/>requirements / CMake / Cargo]
-        HFF[hf_fetcher.py<br/>model cards · datasets]
+    subgraph Local Runner
+        OF[org_fetcher]
+        DS[dep_scraper]
+        HFF[hf_fetcher]
+        KM[keyword_matcher]
+        DC[domain_classifier]
+        EM[embedder<br/>bge-small local model]
+        CS[composite_scorer]
+        EX[exporter]
     end
 
-    subgraph Classifier
-        OL[ontology_loader.py]
-        KM[keyword_matcher.py<br/>topics · description · deps]
-        DC[domain_classifier.py<br/>assign domains]
+    subgraph Cloud
+        PG[(PostgreSQL<br/>repos · scores · vectors<br/>dep_edges · annotations)]
+        GCSS[(GCS<br/>cache · deps · parquet)]
+        GIT[(GitHub<br/>code · config · REPORT.md)]
     end
 
-    subgraph Scorer
-        AS[activity_scorer.py]
-        RS[relevance_scorer.py]
-        CS[composite_scorer.py]
-    end
-
-    subgraph Storage
-        JC[JSON Cache<br/>data/cache/]
-        DB[(SQLite<br/>repos · user_data · deps · digest)]
-        GCS[(GCS Bucket<br/>cache · db · exports · parquet)]
-    end
-
-    subgraph Interface
-        CLI[CLI<br/>repo-hub]
-        EX[Exporter<br/>JSON · CSV · MD · Parquet]
-        RD[Renderer<br/>rich table · tree · detail]
-    end
-
-    GH --> OF --> JC
-    GH --> DS --> JC
-    HF --> HFF --> JC
-    JC --> KM
-    OL --> KM --> DC --> AS & RS
-    AS & RS --> CS --> DB
-    DB <--> GCS
-    DB --> CLI --> RD & EX
-    EX --> GCS
+    GH --> OF --> GCSS
+    GH --> DS --> GCSS
+    HF --> HFF --> GCSS
+    GCSS --> KM --> DC --> CS --> PG
+    GCSS --> EM --> PG
+    PG --> EX --> GCSS
+    EX --> GIT
 ```
 
 ---
 
-## Data Flow — Step by Step
+## Full Pipeline — `repo-hub all`
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant CLI
-    participant Fetcher
-    participant GitHub
-    participant HuggingFace
-    participant Cache
-    participant Classifier
-    participant SQLite
+    participant M as Machine
     participant GCS
+    participant GH as GitHub API
+    participant HF as HuggingFace
+    participant PG as PostgreSQL
 
-    User->>CLI: repo-hub fetch
-    CLI->>Fetcher: fetch all orgs
-    Fetcher->>GitHub: GET /orgs/{org}/repos (paginated)
-    GitHub-->>Fetcher: repo list JSON
-    Fetcher->>GitHub: GET raw dep files (top repos)
-    GitHub-->>Fetcher: requirements.txt / CMakeLists / Cargo.toml
-    Fetcher->>HuggingFace: list models / datasets (HF-tracked orgs)
-    HuggingFace-->>Fetcher: model cards + metadata
-    Fetcher->>Cache: write JSON (local + GCS sync)
+    M->>GCS: restore — pull existing cache
+    M->>GH: fetch all orgs (paginated, skip if cached)
+    GH-->>M: repo JSON
+    M->>GH: scrape dep files (top repos >50★)
+    GH-->>M: requirements/CMake/Cargo/etc.
+    M->>HF: fetch models + datasets per HF org
+    HF-->>M: model cards + metadata
+    M->>GCS: push updated cache
 
-    User->>CLI: repo-hub classify
-    CLI->>Classifier: load ontology + profile
-    Classifier->>Cache: read cached repos + deps
-    Classifier->>Classifier: keyword match → domain assign → score
-    Classifier->>SQLite: upsert repos table
+    M->>M: classify (ontology keyword match → domain assign)
+    M->>M: embed (bge-small → 384-dim vectors)
+    M->>M: score (activity + ontology + deps + profile)
+    M->>PG: upsert repos, embeddings, dep_edges, digest
 
-    User->>CLI: repo-hub list --domain ai_compiler
-    CLI->>SQLite: SELECT ... WHERE domain = 'ai_compiler'
-    SQLite-->>CLI: result rows
-    CLI->>User: rich table
+    M->>M: generate REPORT.md
+    M->>GCS: push Parquet export
+    M->>GIT: git push REPORT.md (auto-commit)
 
-    User->>CLI: repo-hub sync
-    CLI->>GCS: upload SQLite + cache delta
+    opt --clean
+        M->>M: rm -rf data/
+    end
 ```
 
 ---
 
-## Storage Architecture
+## Machine Lifecycle
 
-### Local (always present)
+### First time on any machine
 
-```
-data/
-├── cache/
-│   ├── orgs/          # {org}.json  — raw GitHub API responses
-│   └── deps/          # {org}/{repo}/{file} — scraped dep files
-├── hf/
-│   ├── models/        # {org}/{model}/README.md — HF model cards
-│   └── datasets/      # {org}/{dataset}/README.md
-└── repos.db           # SQLite working database
-```
-
-### GCS (durable, syncable)
-
-```
-gs://{REPO_HUB_GCS_BUCKET}/
-├── cache/
-│   ├── orgs/          # mirrors data/cache/orgs/   (24h TTL objects)
-│   └── deps/          # mirrors data/cache/deps/
-├── hf/                # mirrors data/hf/
-├── db/
-│   └── repos.db       # SQLite backup (uploaded on repo-hub sync)
-├── exports/
-│   └── {YYYY-MM-DD}/
-│       ├── repos.json
-│       ├── repos.csv
-│       └── repos.parquet   # columnar, queryable with DuckDB
-└── snapshots/
-    └── {YYYY-MM-DD}-repos.db  # dated backups
+```bash
+git clone https://github.com/rajaghv-dev/repo-hub
+cd repo-hub
+cp .env.example .env          # fill in 4 values: GITHUB_TOKEN, HF_TOKEN,
+                               # REPO_HUB_GCS_BUCKET, DATABASE_URL
+pip install -e .
+repo-hub restore               # pulls GCS cache, verifies PG connection
+repo-hub all --clean           # full run, wipe local data when done
 ```
 
-### SQLite Schema
+### Subsequent runs (same or different machine)
+
+```bash
+git pull                       # get latest config/profile changes
+repo-hub all --clean           # always starts from GCS cache + PG state
+```
+
+### Browse without running (any machine)
+
+```bash
+git clone ...
+pip install -e . && cp .env.example .env
+repo-hub list                  # queries PG directly — no local data needed
+repo-hub search "MLIR runtime" # pgvector semantic search — no local data needed
+repo-hub annotate intel/llvm-project --status bookmarked
+```
+
+The `list`, `show`, `search`, `annotate`, `stats`, and `digest` commands query PostgreSQL directly. They never need `data/`.
+
+---
+
+## PostgreSQL Schema
 
 ```sql
--- Auto-managed by classifier
+CREATE EXTENSION IF NOT EXISTS vector;       -- pgvector
+CREATE EXTENSION IF NOT EXISTS pg_trgm;      -- fuzzy text search
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Core repo table
 CREATE TABLE repos (
-    id                TEXT PRIMARY KEY,   -- {org}/{name}
+    id                TEXT PRIMARY KEY,           -- {org}/{name}
     org               TEXT NOT NULL,
     name              TEXT NOT NULL,
     url               TEXT,
@@ -147,205 +163,217 @@ CREATE TABLE repos (
     forks             INTEGER DEFAULT 0,
     open_issues       INTEGER DEFAULT 0,
     language          TEXT,
-    license           TEXT,               -- SPDX identifier
-    last_pushed_at    TIMESTAMP,
-    is_archived       BOOLEAN DEFAULT 0,
-    is_fork           BOOLEAN DEFAULT 0,
-    topics            TEXT,               -- JSON array
-    assigned_domains  TEXT,               -- JSON array of domain IDs
-    extracted_deps    TEXT,               -- JSON: {file: [dep, ...]}
+    license           TEXT,                       -- SPDX identifier
+    last_pushed_at    TIMESTAMPTZ,
+    is_archived       BOOLEAN DEFAULT FALSE,
+    is_fork           BOOLEAN DEFAULT FALSE,
+    topics            JSONB DEFAULT '[]',
+    assigned_domains  JSONB DEFAULT '[]',         -- array of domain IDs
+    extracted_deps    JSONB DEFAULT '{}',         -- {file: [dep, ...]}
     s_activity        REAL DEFAULT 0,
     s_ontology        REAL DEFAULT 0,
     s_deps            REAL DEFAULT 0,
     s_profile         REAL DEFAULT 0,
     score             REAL DEFAULT 0,
-    matched_signals   TEXT,               -- JSON: {domain: [signal, ...]}
-    source            TEXT DEFAULT 'github',  -- 'github' | 'huggingface'
-    classified_at     TIMESTAMP,
-    fetched_at        TIMESTAMP
+    matched_signals   JSONB DEFAULT '{}',         -- {domain: [signal, ...]}
+    source            TEXT DEFAULT 'github',      -- 'github' | 'huggingface'
+    classified_at     TIMESTAMPTZ,
+    fetched_at        TIMESTAMPTZ
 );
 
--- Your second brain layer
+-- Vector embeddings (separate table — only populated for classified repos)
+CREATE TABLE repo_embeddings (
+    repo_id     TEXT PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+    embedding   vector(384),                      -- bge-small-en-v1.5 output
+    model       TEXT DEFAULT 'BAAI/bge-small-en-v1.5',
+    embedded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Your second brain annotation layer
 CREATE TABLE user_data (
-    repo_id           TEXT PRIMARY KEY REFERENCES repos(id),
-    status            TEXT DEFAULT 'new',
+    repo_id          TEXT PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+    status           TEXT DEFAULT 'new',
     -- new | reviewing | bookmarked | in-use | dismissed
-    tags              TEXT DEFAULT '[]',  -- JSON array
-    notes             TEXT,               -- freeform markdown
-    projects          TEXT DEFAULT '[]',  -- JSON: your project names
-    priority          INTEGER DEFAULT 0,  -- 0=normal, 1=high, 2=critical
-    first_seen_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_reviewed_at  TIMESTAMP
+    tags             JSONB DEFAULT '[]',
+    notes            TEXT,                        -- freeform markdown
+    projects         JSONB DEFAULT '[]',          -- your project names
+    priority         INTEGER DEFAULT 0,           -- 0=normal 1=high 2=critical
+    first_seen_at    TIMESTAMPTZ DEFAULT NOW(),
+    last_reviewed_at TIMESTAMPTZ
 );
 
--- Dependency graph (cross-repo relationships)
+-- Dependency graph edges (cross-repo relationships)
 CREATE TABLE dep_edges (
-    from_repo         TEXT REFERENCES repos(id),
-    dep_name          TEXT NOT NULL,      -- package/library name
-    dep_type          TEXT,               -- python | cmake | cargo | npm | go
-    resolved_repo     TEXT REFERENCES repos(id),  -- NULL if not in our DB
+    from_repo     TEXT REFERENCES repos(id) ON DELETE CASCADE,
+    dep_name      TEXT NOT NULL,
+    dep_type      TEXT,                           -- python|cmake|cargo|npm|go
+    resolved_repo TEXT REFERENCES repos(id),      -- NULL if not in our DB
     PRIMARY KEY (from_repo, dep_name, dep_type)
 );
 
--- Digest / change log
+-- Change log — powers digest command
 CREATE TABLE digest (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    repo_id           TEXT REFERENCES repos(id),
-    event             TEXT,               -- new_repo | star_delta | push | archived
-    detail            TEXT,               -- JSON payload
-    detected_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id           BIGSERIAL PRIMARY KEY,
+    repo_id      TEXT REFERENCES repos(id) ON DELETE CASCADE,
+    event        TEXT,                            -- new_repo|star_delta|push|archived
+    detail       JSONB,
+    detected_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- HuggingFace repos (same scoring pipeline)
+-- HuggingFace repos (parallel to repos table)
 CREATE TABLE hf_repos (
-    id                TEXT PRIMARY KEY,   -- {org}/{name}
-    org               TEXT,
-    name              TEXT,
-    type              TEXT,               -- model | dataset | space
-    downloads         INTEGER DEFAULT 0,
-    likes             INTEGER DEFAULT 0,
-    tags              TEXT,               -- JSON array
-    pipeline_tag      TEXT,               -- e.g. text-generation
-    assigned_domains  TEXT,
-    score             REAL DEFAULT 0,
-    fetched_at        TIMESTAMP
+    id           TEXT PRIMARY KEY,               -- {org}/{name}
+    org          TEXT,
+    name         TEXT,
+    type         TEXT,                           -- model|dataset|space
+    downloads    INTEGER DEFAULT 0,
+    likes        INTEGER DEFAULT 0,
+    tags         JSONB DEFAULT '[]',
+    pipeline_tag TEXT,
+    assigned_domains JSONB DEFAULT '[]',
+    score        REAL DEFAULT 0,
+    fetched_at   TIMESTAMPTZ
 );
+
+-- Indexes
+CREATE INDEX idx_repos_score        ON repos (score DESC);
+CREATE INDEX idx_repos_org          ON repos (org);
+CREATE INDEX idx_repos_language     ON repos (language);
+CREATE INDEX idx_repos_pushed       ON repos (last_pushed_at DESC);
+CREATE INDEX idx_repos_topics       ON repos USING GIN (topics);
+CREATE INDEX idx_repos_domains      ON repos USING GIN (assigned_domains);
+CREATE INDEX idx_repos_deps         ON repos USING GIN (extracted_deps);
+CREATE INDEX idx_repos_fts          ON repos USING GIN (
+    to_tsvector('english', coalesce(name,'') || ' ' || coalesce(description,''))
+);
+CREATE INDEX idx_user_data_status   ON user_data (status);
+CREATE INDEX idx_dep_edges_from     ON dep_edges (from_repo);
+CREATE INDEX idx_dep_edges_resolved ON dep_edges (resolved_repo);
+
+-- Vector index (HNSW — fast approximate search)
+CREATE INDEX idx_embeddings_hnsw ON repo_embeddings
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 ```
 
 ---
 
-## HuggingFace Hub Integration
-
-HuggingFace is a parallel data source, not just an org on GitHub. The `hf` subcommand manages it.
-
-### What we pull from HF
-
-| Resource | API | Purpose |
-|---|---|---|
-| Models | `GET /api/models?author={org}` | Track models from known orgs (Intel, AMD, NVIDIA, HF, etc.) |
-| Datasets | `GET /api/datasets?author={org}` | Training and benchmark datasets |
-| Model cards | `GET /{org}/{model}/raw/main/README.md` | Rich text for classification |
-| Spaces | `GET /api/spaces?author={org}` | Demos and inference apps |
-
-### Cross-referencing
-
-When a GitHub repo's name or description matches a HuggingFace model (e.g., `microsoft/phi` on both), we link them in `dep_edges` with `dep_type = 'hf_model'`. This lets you see: "This training repo produces this HF model."
-
-### HuggingFace Orgs Tracked
-
-`huggingface` · `microsoft` · `google` · `meta-llama` · `mistralai` · `EleutherAI` · `Stability-AI` · `BAAI` · `internlm` · `Qwen` · `deepseek-ai` · `nvidia` · `intel` · `tiiuae` (Falcon)
-
----
-
-## Scalability Design
-
-### Current scale: ~75 orgs × ~100 repos = ~7,500 repos
-
-SQLite handles this with zero overhead. Full classify run: < 30 seconds.
-
-### Scale tier 2: ~200 orgs × ~300 repos = ~60,000 repos
-
-Still SQLite. Dep scraping becomes the bottleneck (rate limits). Solution: async fetch with worker pool (5–10 concurrent), GCS cache shared across machines.
-
-### Scale tier 3: ~500 orgs, shared team use
-
-Options:
-- **DuckDB on GCS Parquet** — query `repos.parquet` directly from GCS without downloading. Zero server.
-- **BigQuery** — load Parquet exports to BQ for ad-hoc SQL from anywhere.
-- **PostgreSQL** — if you need concurrent writes (multiple contributors annotating).
-
-The export pipeline always produces Parquet (via `pyarrow`), so any of these is one command away.
-
-### Rate limits
-
-| Source | Unauthenticated | With token |
-|---|---|---|
-| GitHub REST | 60 req/hr | 5,000 req/hr |
-| GitHub raw content | shared pool | same token |
-| HuggingFace API | 1,000 req/hr | higher with token |
-
-For 75 orgs: ~750 list requests + ~3,750 dep file fetches = 4,500 total. Requires GitHub token. GCS cache means you only re-fetch what has changed (using `Last-Modified` / `ETag` headers).
-
----
-
-## Tech Stack
-
-| Component | Technology | Why |
-|---|---|---|
-| CLI framework | Click | subcommands, help text, composable |
-| HTTP client | requests + httpx (async) | sync for simple calls, async for dep scraping |
-| Terminal UI | rich | tables, trees, progress bars, panels |
-| Config | PyYAML + tomli | YAML for human-editable configs, TOML for pyproject |
-| Local DB | SQLite via sqlite3 | zero setup, fast, file-portable |
-| GCS client | google-cloud-storage | native GCS SDK |
-| Columnar export | pyarrow + pandas | Parquet generation for analytics |
-| HuggingFace | huggingface_hub | official SDK for HF API |
-| Dep parsing | stdlib (tomllib/tomli, json, re) | no heavy parsers needed |
-| Python | 3.9+ | matches existing virtualenv |
-
----
-
-## Configuration Files
+## GCS Layout
 
 ```
-config/
-├── orgs.yaml        # org registry (GitHub handles + HF orgs + per-org overrides)
-├── ontology.yaml    # 18-domain taxonomy with signal keywords per domain
-└── profile.yaml     # your interest profile: domain weights + tech interests
+gs://{REPO_HUB_GCS_BUCKET}/
+├── cache/
+│   ├── orgs/            # {org}.json  — raw GitHub API (24h TTL)
+│   └── deps/            # {org}/{repo}/{file}  — scraped dep files
+├── hf/
+│   ├── models/          # {org}/{model}/README.md
+│   └── datasets/        # {org}/{dataset}/README.md
+├── exports/
+│   └── {YYYY-MM-DD}/
+│       ├── repos.parquet      # full snapshot, queryable via DuckDB
+│       ├── repos.csv
+│       └── summary.json
+└── snapshots/
+    └── {YYYY-MM-DD}/          # point-in-time PG table dumps (CSV)
 ```
 
-Environment variables (`.env`):
+---
+
+## Embedding Strategy
+
+- **Model:** `BAAI/bge-small-en-v1.5` (local, 384 dimensions, ~22MB download)
+- **Input:** `{name}: {description}` (capped at 512 tokens)
+- **Cost:** ~2ms per repo on CPU, ~20s for 10k repos total
+- **No API calls, no external dependency at run time**
+
+Semantic search query:
+
+```python
+# embed the query with the same model, then:
+SELECT r.id, r.name, r.description, r.score,
+       1 - (e.embedding <=> query_vec) AS similarity
+FROM repos r
+JOIN repo_embeddings e ON e.repo_id = r.id
+ORDER BY e.embedding <=> query_vec
+LIMIT 20;
+```
+
+---
+
+## Environment (.env)
 
 ```bash
-GITHUB_TOKEN=ghp_...
-HF_TOKEN=hf_...
+GITHUB_TOKEN=ghp_...                      # required — 5000 req/hr vs 60
+HF_TOKEN=hf_...                           # optional — higher HF API limits
+DATABASE_URL=postgresql://...             # Supabase / Neon / Cloud SQL connection string
 REPO_HUB_GCS_BUCKET=your-bucket-name
-REPO_HUB_GCS_PREFIX=repo-hub/           # optional path prefix inside bucket
-REPO_HUB_DATA_DIR=./data                 # local data root
+REPO_HUB_GCS_PREFIX=repo-hub/
+REPO_HUB_DATA_DIR=./data                  # local scratch — always safe to delete
 REPO_HUB_CONFIG_DIR=./config
 ```
 
 ---
 
-## Directory Layout (final)
+## Tech Stack
+
+| Component | Technology | Notes |
+|---|---|---|
+| CLI | Click | subcommands, composable |
+| HTTP | httpx (async) | concurrent fetch with rate-limit headers |
+| Terminal UI | rich | tables, trees, panels, progress |
+| Config | PyYAML | human-editable |
+| Database | PostgreSQL via psycopg3 | pgvector + JSONB + FTS |
+| Embeddings | sentence-transformers | local bge-small model |
+| GCS | google-cloud-storage | SDK |
+| Columnar | pyarrow | Parquet export |
+| HuggingFace | huggingface_hub | models + datasets API |
+| TOML | tomli (py<3.11) | pyproject.toml dep parsing |
+
+---
+
+## Directory Layout
 
 ```
 repo-hub/
 ├── README.md
 ├── docs/
 │   ├── ARCHITECTURE.md   ← this file
-│   ├── ONTOLOGY.md
-│   ├── ORGS.md
-│   └── SCORING.md
+│   ├── WORKFLOW.md       ← machine lifecycle, day-to-day use
+│   ├── ONTOLOGY.md       ← 18 domains
+│   ├── ORGS.md           ← ~75 orgs
+│   └── SCORING.md        ← algorithm
 ├── config/
 │   ├── orgs.yaml
-│   ├── ontology.yaml
+│   ├── ontology.yaml     ← (to be generated)
 │   └── profile.yaml
 ├── repo_hub/
 │   ├── __init__.py
-│   ├── cli.py                   # Click entry point, all command groups
+│   ├── cli.py
 │   ├── fetcher/
-│   │   ├── github_client.py     # rate-limited GitHub REST wrapper
-│   │   ├── org_fetcher.py       # paginate org repos
-│   │   ├── dep_scraper.py       # fetch + parse dep files
-│   │   └── hf_fetcher.py        # HuggingFace Hub API
+│   │   ├── github_client.py
+│   │   ├── org_fetcher.py
+│   │   ├── dep_scraper.py
+│   │   └── hf_fetcher.py
 │   ├── classifier/
 │   │   ├── ontology_loader.py
-│   │   ├── keyword_matcher.py   # signal matching (topics/desc/deps/filenames)
+│   │   ├── keyword_matcher.py
 │   │   └── domain_classifier.py
 │   ├── scorer/
 │   │   ├── activity_scorer.py
 │   │   ├── relevance_scorer.py
 │   │   └── composite_scorer.py
+│   ├── embedder/
+│   │   └── embedder.py              # bge-small, batched
 │   ├── storage/
-│   │   ├── cache.py             # JSON cache with TTL
-│   │   ├── db.py                # SQLite façade
-│   │   └── gcs.py               # GCS sync (upload/download/delta)
+│   │   ├── cache.py                 # JSON cache TTL logic
+│   │   ├── db.py                    # PostgreSQL (psycopg3) façade
+│   │   └── gcs.py                   # GCS sync (delta upload/download)
 │   └── renderer/
 │       ├── table.py
 │       ├── tree.py
-│       └── export.py            # JSON · CSV · Markdown · Parquet
-├── data/                        # runtime-generated, git-ignored
+│       └── export.py                # Parquet + Markdown REPORT.md
+├── schema.sql                       # PostgreSQL DDL (run once on new PG instance)
+├── data/                            # runtime scratch — git-ignored, always deletable
 ├── pyproject.toml
 ├── .env.example
 └── .gitignore

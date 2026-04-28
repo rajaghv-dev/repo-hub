@@ -2,11 +2,19 @@
 
 > A second brain for the open-source ecosystem — track, classify, score, and annotate repos from chip companies, AI labs, OS projects, and ML frameworks so you always know what's worth watching.
 
+## Core principle: the machine is disposable, the data is not
+
+Clone on any machine → run the full pipeline → push all state to cloud → wipe local → repeat anywhere.
+
+```
+git clone → pip install -e . → .env (4 tokens) → repo-hub all --clean
+```
+
+All state lives in three cloud stores: **PostgreSQL** (repos, scores, vectors, your annotations), **GCS** (raw cache, Parquet exports), and **GitHub** (code, config, auto-generated report). The local `data/` directory is always safe to delete.
+
 ## What it does
 
-`repo-hub` continuously monitors ~75 GitHub organisations across hardware, AI, and systems software. It classifies every public repo against a structured ontology of 18 technical domains, scores each one for relevance to your work, and stores everything in a queryable local database backed by GCS. You annotate repos you care about, run a digest to see what changed, and export reports.
-
-It is not a dashboard. It runs as a CLI, stores locally, and syncs to the cloud.
+`repo-hub` monitors ~75 GitHub organisations and HuggingFace Hub orgs across hardware, AI, OS, and systems software. It classifies every public repo against a structured ontology of 18 technical domains, scores each for relevance to your work, stores embeddings for semantic search, and tracks your personal annotations — all in PostgreSQL accessible from any machine.
 
 ## Domains (18)
 
@@ -52,38 +60,43 @@ repo-hub profile            # manage your interest profile and domain weights
 ## Data Flow
 
 ```
-GitHub API ──► fetch ──► JSON cache (local + GCS)
-                              │
-HuggingFace Hub ─────────────┤
-                              ▼
-                         classify
-                    (ontology · deps · profile)
-                              │
-                              ▼
-                         SQLite DB  ◄──► GCS sync
-                              │
-                    ┌─────────┴──────────┐
-                    ▼                    ▼
-              annotate              list / digest / export
-           (your second brain)
+GitHub API ──► fetch ──► GCS cache ──► classify ──► PostgreSQL
+                                           │               │
+HuggingFace Hub ───────────────────────────┘         pgvector (embed)
+                                                           │
+                                              list · search · annotate · digest
 ```
 
 ## Storage
 
-| Layer | Technology | Purpose |
+| Store | Technology | What lives there |
 |---|---|---|
-| API cache | JSON files | Raw GitHub API responses, 24h TTL |
-| Working DB | SQLite | Scored repos + your annotations, fast local queries |
-| Object store | GCS | Durable cache, DB backups, large exports, Parquet snapshots |
-| Model/dataset | HuggingFace Hub | Model cards, dataset metadata, HF repo cross-reference |
+| **Data plane** | PostgreSQL (Supabase/Neon) | Repos, scores, pgvector embeddings, dep graph, annotations |
+| **Blob store** | GCS | Raw API cache, dep files, Parquet exports |
+| **Control plane** | GitHub | Code, config, ontology, profile, `REPORT.md` |
+| **Local** | `data/` (temp) | Scratch only — always safe to delete |
 
 ## Docs
 
-- [Architecture & Tech Design](docs/ARCHITECTURE.md)
-- [Ontology — 18 Domains](docs/ONTOLOGY.md)
-- [Organisations (~75)](docs/ORGS.md)
-- [Scoring Algorithm](docs/SCORING.md)
+- [Architecture & Tech Design](docs/ARCHITECTURE.md) — component diagram, DB schema, GCS layout, embedding strategy
+- [Workflow — Machine Lifecycle](docs/WORKFLOW.md) — setup, full pipeline, GitHub Actions schedule
+- [Ontology — 18 Domains](docs/ONTOLOGY.md) — domain taxonomy with signal keywords
+- [Organisations (~75)](docs/ORGS.md) — all tracked orgs grouped by category
+- [Scoring Algorithm](docs/SCORING.md) — sub-scores, formula, tuning
+
+## Quick Reference
+
+```bash
+repo-hub doctor                          # verify all connections
+repo-hub restore                         # pull GCS cache → local
+repo-hub all --clean                     # full pipeline, wipe local after
+repo-hub list --domain ai_compiler       # browse by domain
+repo-hub search "MLIR inference engine"  # semantic search (pgvector)
+repo-hub annotate ORG/REPO --status bookmarked --note "..."
+repo-hub digest --since 7d              # what changed this week
+repo-hub export --format parquet        # export to GCS
+```
 
 ## Status
 
-Design phase — implementation in progress.
+Design complete — implementation in progress.
