@@ -1,0 +1,232 @@
+threshold: 0.15
+
+hardware_domains: [os_kernel, drivers_firmware, fpga, eda_sim, interconnect, soc_riscv]
+
+signal_weights:
+  standard:
+    topics: 0.40
+    description: 0.35
+    deps: 0.15
+    filenames: 0.10
+  hardware:
+    topics: 0.15
+    description: 0.40
+    deps: 0.10
+    filenames: 0.35
+
+saturation:
+  hardware: 3
+  compute: 6
+  aiml: 12
+  infra: 10
+
+domains:
+  - id: os_kernel
+    label: "OS & Kernel"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [linux, kernel, ebpf, bpf, io-uring, dpdk, operating-system, freebsd, kprobes, cgroups, namespaces, system-programming]
+      description: [kernel, eBPF, io_uring, syscall, kprobe, tracepoint, cgroup, namespace, DPDK, "packet processing", "kernel module", scheduler, "memory management"]
+      deps: [bcc, bpftrace, pyroute2, dpdk, liburing]
+      filenames: ["*.bpf.c", "*.ko", Kconfig, vmlinux.h, "kernel/"]
+
+  - id: drivers_firmware
+    label: "Drivers & Firmware"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [driver, firmware, uefi, bios, bootloader, rtos, device-tree, embedded, mesa, drm, hal, bsp, zephyr, u-boot, coreboot]
+      description: [driver, firmware, DRM, KMS, UEFI, bootloader, "device tree", "board support", BSP, HAL, "register map", peripheral, interrupt]
+      deps: [libdrm, libusb, libudev]
+      filenames: ["*.dts", "*.dtsi", "*.inf", "*.asl", edk2.conf, zephyr.yaml]
+
+  - id: desktop_open
+    label: "Open Desktop"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [kde, gnome, wayland, x11, compositor, desktop-environment, window-manager, qt, gtk, dbus, freedesktop, flatpak, plasma, pipewire]
+      description: [desktop, Wayland, compositor, KDE, GNOME, "window manager", D-Bus, Qt, GTK, XDG, "display server", Plasma]
+      deps: [PyQt5, PyQt6, PyGObject, dbus-python]
+      filenames: ["*.qml", "*.ui", "*.glade", "org.*.xml", "*.desktop"]
+
+  - id: android_device
+    label: "Android & Devices"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [android, aosp, lineageos, grapheneos, postmarketos, mobile, hal, android-app, treble, art]
+      description: [Android, AOSP, HAL, Treble, ART, Dalvik, mobile, device-specific]
+      deps: [android-sdk]
+      filenames: [Android.mk, Android.bp, AndroidManifest.xml, "*.aidl", "sepolicy/"]
+
+  - id: fpga
+    label: "FPGA"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [fpga, hls, rtl, verilog, vhdl, xilinx, intel-fpga, risc-v, chisel, hardware-design, digital-design, systemverilog, alveo, aie]
+      description: [FPGA, HLS, RTL, Verilog, VHDL, bitstream, LUT, synthesis, "place and route", "timing closure", "soft core", Alveo, "AI Engine"]
+      deps: [pyrtl, migen, amaranth-hdl, cocotb, pynq]
+      filenames: ["*.v", "*.sv", "*.vhd", "*.xdc", "*.tcl", "*.bit", hls.tcl, vivado.tcl, "*.xo"]
+
+  - id: eda_sim
+    label: "EDA & Simulation"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [eda, rtl-simulation, synthesis, verilator, cocotb, yosys, formal-verification, place-and-route, hls, ghdl, icarus, logic-simulation, hardware-compiler]
+      description: ["RTL simulation", synthesis, "place and route", "formal verification", HLS, "hardware simulation", testbench, waveform, "timing analysis", netlist, EDA, "logic gate"]
+      deps: [cocotb, pyrtl, pymtl3, migen, amaranth-hdl]
+      filenames: ["*.v", "*.sv", "*.vhd", "*.fir", "*.futil", sim_main.cpp, "*.gtkw"]
+
+  - id: interconnect
+    label: "Interconnect & Storage"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [pcie, cxl, nvme, rdma, spdk, dma, interconnect, fabric, infiniband, storage, user-space-driver, axi, high-bandwidth]
+      description: [PCIe, CXL, NVMe, RDMA, DMA, fabric, InfiniBand, "user-space", "zero-copy", "scatter-gather", IOMMU, BAR, MMIO, AXI4]
+      deps: [spdk, libfabric, pyverbs]
+      filenames: [pcie_driver.c, dma_engine.v, nvme.c, "xdma/"]
+
+  - id: soc_riscv
+    label: "SoC & RISC-V"
+    group: hardware
+    saturation_group: hardware
+    signals:
+      topics: [risc-v, soc, processor, chisel, firrtl, riscv, chipyard, rocket-chip, boom, cva6, opentitan, litex, vlsi, tapeout, open-silicon]
+      description: [RISC-V, SoC, "processor core", Chisel, FIRRTL, "chip generator", VLSI, tapeout, RTL-to-GDS, "ISA simulator", "out-of-order", superscalar]
+      deps: [chisel, firrtl, pymtl3, riscv-tools]
+      filenames: ["*.scala", "*.fir", "build.mill", "sky130/", "vlsi/"]
+
+  - id: cpu_inference
+    label: "CPU Inference & Kernels"
+    group: compute
+    saturation_group: compute
+    signals:
+      topics: [simd, avx, avx512, amx, arm-neon, arm-sve, cpu-inference, onednn, openblas, cpu-optimization, intrinsics]
+      description: [SIMD, AVX-512, AMX, NEON, SVE, intrinsics, vectorization, oneDNN, BLAS, gemm, quantized, "CPU inference"]
+      deps: [highway, xsimd, openblas, mkl, onednn]
+      filenames: ["*.avx2.cpp", "*.avx512.cpp", "*_neon.cpp", "*_sve.cpp"]
+
+  - id: gpu_runtime
+    label: "GPU Runtimes"
+    group: compute
+    saturation_group: compute
+    signals:
+      topics: [cuda, rocm, hip, sycl, opencl, gpu, oneapi, metal, vulkan-compute, gpgpu, hpc, parallel-computing, cutlass]
+      description: [CUDA, ROCm, HIP, SYCL, "GPU kernel", warp, "thread block", "shared memory", stream, cuBLAS, rocBLAS, heterogeneous]
+      deps: [cupy, pycuda, pyopencl, hip-python, intel-extension-for-pytorch]
+      filenames: ["*.cu", "*.cuh", "*.hip", "*.cl", "*.metal", "*.hlsl"]
+
+  - id: ai_compiler
+    label: "AI Compilers & Frameworks"
+    group: compute
+    saturation_group: compute
+    signals:
+      topics: [mlir, compiler, tvm, llvm, xla, triton, iree, halide, graph-optimization, jit, aot, ir, codegen, stablehlo, circt]
+      description: [MLIR, compiler, "intermediate representation", IR, lowering, codegen, JIT, AOT, "kernel fusion", "graph optimization", dialect, affine, linalg]
+      deps: [apache-tvm, iree-compiler, iree-runtime, torch-mlir, triton]
+      filenames: ["*.mlir", "*.td", "*.inc"]
+
+  - id: quantization
+    label: "Quantization & Compression"
+    group: aiml
+    saturation_group: aiml
+    signals:
+      topics: [quantization, pruning, compression, distillation, sparsity, gptq, awq, gguf, int8, int4, fp8, mixed-precision, sparse]
+      description: [quantization, INT8, INT4, FP8, pruning, sparsity, distillation, GPTQ, AWQ, GGUF, bitsandbytes, calibration, "weight compression"]
+      deps: [bitsandbytes, auto-gptq, autoawq, neural-compressor, optimum, quanto]
+      filenames: [quantize.py, calibrate.py, prune.py, "*.gguf"]
+
+  - id: llm_inference
+    label: "LLM Inference"
+    group: aiml
+    saturation_group: aiml
+    signals:
+      topics: [llm, inference, vllm, llama-cpp, tensorrt-llm, text-generation, serving, paged-attention, continuous-batching, speculative-decoding]
+      description: ["LLM inference", "paged attention", "continuous batching", "speculative decoding", "KV cache", "token generation", throughput, TTFT, TPS]
+      deps: [vllm, llama-cpp-python, ctransformers, mlc-llm, lmdeploy]
+      filenames: [serve.py, engine.py, scheduler.py]
+
+  - id: ml_training
+    label: "ML Training"
+    group: aiml
+    saturation_group: aiml
+    signals:
+      topics: [training, deep-learning, pytorch, tensorflow, jax, deepspeed, megatron, fsdp, distributed-training, optimizer, fine-tuning]
+      description: [training, backpropagation, gradient, optimizer, loss, epoch, "distributed training", "data parallel", "model parallel", "mixed precision"]
+      deps: [torch, tensorflow, jax, flax, deepspeed, lightning, composer]
+      filenames: [train.py, finetune.py, pretrain.py, trainer.py]
+
+  - id: hf_ecosystem
+    label: "HuggingFace Ecosystem"
+    group: aiml
+    saturation_group: aiml
+    signals:
+      topics: [huggingface, transformers, diffusers, peft, trl, accelerate, safetensors, datasets, gradio, optimum]
+      description: [transformers, HuggingFace, "model hub", pipeline, AutoModel, AutoTokenizer, safetensors, LoRA, PEFT, TRL, RLHF]
+      deps: [transformers, diffusers, peft, trl, accelerate, datasets, evaluate, gradio, optimum, safetensors]
+      filenames: [config.json, tokenizer_config.json, model.safetensors]
+
+  - id: hw_abstraction
+    label: "Hardware Abstraction"
+    group: aiml
+    saturation_group: aiml
+    signals:
+      topics: [onnx, onnxruntime, openvino, qnn, snpe, coreml, tflite, npu, delegate, execution-provider, neural-engine]
+      description: ["ONNX Runtime", OpenVINO, "execution provider", EP, QNN, SNPE, CoreML, "TFLite delegate", NPU, "neural engine", hardware-agnostic]
+      deps: [onnxruntime, onnxruntime-gpu, openvino-dev, coremltools, tensorflow-lite]
+      filenames: ["*.onnx", model.xml, model.bin, "*.mlpackage", "*.tflite"]
+
+  - id: profiling
+    label: "Profiling & Benchmarking"
+    group: infra
+    saturation_group: infra
+    signals:
+      topics: [profiling, benchmarking, tracing, perf, mlperf, nsight, vtune, flamegraph, performance, hardware-counters]
+      description: [profiler, benchmark, latency, throughput, roofline, trace, flamegraph, "ops/sec", FLOPS, bandwidth, PMU, "hardware counter"]
+      deps: [torch_tb_profiler, pyinstrument, scalene, py-spy, pyperf]
+      filenames: [benchmark.py, bench.py, profile.py, mlperf.conf]
+
+  - id: databases
+    label: "Databases & Vector Stores"
+    group: infra
+    saturation_group: infra
+    signals:
+      topics: [vector-database, embeddings, similarity-search, ann, faiss, qdrant, milvus, weaviate, duckdb, columnar, arrow, retrieval, rag]
+      description: ["vector database", embedding, "similarity search", ANN, HNSW, IVF, "cosine similarity", retrieval, RAG, columnar]
+      deps: [faiss-cpu, faiss-gpu, qdrant-client, pymilvus, chromadb, lancedb, duckdb, pyarrow, weaviate-client]
+      filenames: ["*.lance", "*.parquet", "*.arrow", index.faiss]
+
+  - id: browser_wasm
+    label: "Browser & WebAssembly"
+    group: infra
+    saturation_group: infra
+    signals:
+      topics: [webgpu, webnn, webassembly, wasm, browser, wasmtime, wasmedge, wasi, javascript-engine, v8, rendering-engine]
+      description: [WebGPU, WebNN, WebAssembly, WASM, browser, "JavaScript engine", V8, Cranelift, WASI, "in-browser inference", "edge inference"]
+      deps: [wasmtime, wasmer, emscripten]
+      filenames: ["*.wasm", "*.wat", "*.wit"]
+
+  - id: agentic
+    label: "Agentic Systems"
+    group: infra
+    saturation_group: infra
+    signals:
+      topics: [agent, multi-agent, langchain, llamaindex, autogen, crewai, rag, tool-use, memory, orchestration, mcp, function-calling]
+      description: [agent, "multi-agent", "tool use", "function calling", RAG, retrieval-augmented, memory, planning, orchestration, MCP, "Model Context Protocol"]
+      deps: [langchain, langchain-core, llama-index, pyautogen, crewai, haystack-ai, mem0ai, pydantic-ai]
+      filenames: [agent.py, tools.py, memory.py, mcp.json]
+
+  - id: observability
+    label: "Telemetry & Observability"
+    group: infra
+    saturation_group: infra
+    signals:
+      topics: [opentelemetry, observability, tracing, metrics, logging, prometheus, grafana, mlflow, monitoring, telemetry, dvc]
+      description: [telemetry, tracing, metrics, observability, "distributed tracing", span, trace, MLflow, "experiment tracking", "data lineage", "model monitoring", "drift detection"]
+      deps: [opentelemetry-sdk, opentelemetry-api, mlflow, dvc, evidently, prometheus-client, wandb, arize-phoenix]
+      filenames: [otel-config.yaml, prometheus.yml, "grafana/", dvc.yaml]

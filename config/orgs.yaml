@@ -1,338 +1,524 @@
-# Org Registry
-# Full list documented in docs/ORGS.md
-# Add entries here; run: repo-hub fetch --org HANDLE to pull immediately.
-
 defaults:
   min_stars: 10
   include_forks: false
-  osi_only: true          # OSI-approved licenses only
-  inactive_days: 365
-  cache_ttl_hours: 24
+  osi_only: true
+  dep_scrape_min_stars: 50
   max_repos_per_org: 500
-  dep_scrape_min_stars: 50   # only scrape dep files for repos above this
 
 orgs:
-  # --- Chip & Hardware ---
+  # Chip & Hardware Vendors
   - handle: intel
-    label: Intel
+    label: "Intel"
+    type: org
+    filter_topics: [oneapi, openvino, mlir, dpdk, neural-compressor, gaudi, opencl, sycl, fpga, ai]
+
   - handle: ROCm
-    label: AMD ROCm
+    label: "AMD ROCm"
+    type: org
+
   - handle: AMDResearch
-    label: AMD Research
+    label: "AMD Research"
+    type: org
+
   - handle: Xilinx
-    label: AMD Xilinx
+    label: "AMD Xilinx"
+    type: org
+
   - handle: NVIDIA
-    label: NVIDIA
+    label: "NVIDIA"
+    type: org
+    filter_topics: [cuda, deep-learning, machine-learning, inference, compiler, triton, gpu]
+
   - handle: NVlabs
-    label: NVIDIA Labs
+    label: "NVIDIA Labs"
+    type: org
+
   - handle: ARM-software
-    label: ARM
+    label: "ARM"
+    type: org
+
   - handle: quic
-    label: Qualcomm Innovation Center
+    label: "Qualcomm Innovation Center"
+    type: org
+
   - handle: tenstorrent
-    label: Tenstorrent
+    label: "Tenstorrent"
+    type: org
+
   - handle: modularml
-    label: Modular
+    label: "Modular"
+    type: org
+
   - handle: ibm
-    label: IBM
+    label: "IBM"
+    type: org
+    filter_topics: [ai, machine-learning, quantum, systems]
+
   - handle: STMicroelectronics
-    label: STMicroelectronics
+    label: "STMicroelectronics"
+    type: org
+
   - handle: NXPSemiconductors
-    label: NXP Semiconductors
+    label: "NXP"
+    type: org
+
   - handle: raspberrypi
-    label: Raspberry Pi
+    label: "Raspberry Pi"
+    type: org
+
   - handle: efabless
-    label: Efabless
+    label: "Efabless"
+    type: org
+
   - handle: rapidsilicon
-    label: Rapid Silicon
+    label: "Rapid Silicon"
+    type: org
 
-  # --- AI / ML Frameworks ---
+  # AI / ML Frameworks
   - handle: huggingface
-    label: HuggingFace
+    label: "HuggingFace"
+    type: org
+
   - handle: pytorch
-    label: PyTorch
+    label: "PyTorch"
+    type: org
+
   - handle: keras-team
-    label: Keras
+    label: "Keras"
+    type: org
+
   - handle: google-deepmind
-    label: Google DeepMind
+    label: "Google DeepMind"
+    type: org
+
   - handle: google
-    label: Google
-    filter_topics: [machine-learning, deep-learning, ai, mlir, xla, jax, webgpu, webassembly, kernel]
+    label: "Google"
+    type: org
+    filter_topics: [machine-learning, deep-learning, jax, xla, mlir, webgpu, ai, compiler]
+    max_repos_per_org: 200
+
   - handle: facebookresearch
-    label: Meta Research
+    label: "Meta Research"
+    type: org
+
   - handle: microsoft
-    label: Microsoft
-    filter_topics: [machine-learning, deep-learning, ai, onnx, compiler, inference, agent, llm, wasm]
+    label: "Microsoft"
+    type: org
+    filter_topics: [machine-learning, deep-learning, onnx, ai, inference, nlp, llm]
+    max_repos_per_org: 200
+
   - handle: openxla
-    label: OpenXLA
+    label: "OpenXLA"
+    type: org
 
-  # --- Inference & Runtimes ---
+  # LLM Inference & Serving
   - handle: vllm-project
-    label: vLLM
+    label: "vLLM"
+    type: org
+
   - handle: ggerganov
-    label: Georgi Gerganov
+    label: "Georgi Gerganov"
     type: user
+
   - handle: neuralmagic
-    label: Neural Magic
+    label: "Neural Magic"
+    type: org
+
   - handle: lm-sys
-    label: LM-SYS
+    label: "LM-SYS"
+    type: org
+
   - handle: mlc-ai
-    label: MLC AI
+    label: "MLC AI"
+    type: org
 
-  # --- Quantization & Compression ---
+  # Quantization & Compression
   - handle: IST-DASLab
-    label: IST DAS Lab
+    label: "IST DAS Lab"
+    type: org
+
   - handle: casper-hansen
-    label: Casper Hansen
+    label: "Casper Hansen"
     type: user
+
   - handle: TimDettmers
-    label: Tim Dettmers
+    label: "Tim Dettmers"
     type: user
 
-  # --- AI Compilers ---
+  # AI Compilers
   - handle: llvm
-    label: LLVM
+    label: "LLVM"
+    type: org
+
   - handle: apache
-    label: Apache
-    filter_topics: [tvm, machine-learning, deep-learning, compiler]
+    label: "Apache"
+    type: org
+    filter_topics: [tvm, mxnet]
+
   - handle: iree-org
-    label: IREE
+    label: "IREE"
+    type: org
+
   - handle: triton-lang
-    label: Triton
+    label: "Triton"
+    type: org
+
   - handle: nod-ai
-    label: Nod.ai
+    label: "Nod.ai"
+    type: org
+
   - handle: buddy-compiler
-    label: Buddy Compiler
+    label: "Buddy Compiler"
+    type: org
 
-  # --- OS, Kernel & Systems ---
-  - handle: torvalds
-    label: Linux Kernel
-    type: user
-  - handle: freebsd
-    label: FreeBSD
-  - handle: iovisor
-    label: IO Visor (eBPF)
-  - handle: libbpf
-    label: libbpf
-  - handle: axboe
-    label: Jens Axboe
-    type: user
-  - handle: DPDK
-    label: DPDK
-  - handle: systemd
-    label: systemd
-  - handle: brendangregg
-    label: Brendan Gregg
-    type: user
-  - handle: sysstat
-    label: sysstat
-
-  # --- Drivers & Firmware ---
-  - handle: mesa3d
-    label: Mesa 3D
-  - handle: tianocore
-    label: TianoCore (EDK2/UEFI)
-  - handle: coreboot
-    label: coreboot
-  - handle: u-boot
-    label: Das U-Boot
-  - handle: zephyrproject-rtos
-    label: Zephyr RTOS
-
-  # --- Open Desktop ---
-  - handle: KDE
-    label: KDE
-  - handle: GNOME
-    label: GNOME
-  - handle: freedesktop
-    label: freedesktop.org
-  - handle: wayland
-    label: Wayland
-  - handle: qt
-    label: Qt
-  - handle: swaywm
-    label: Sway
-  - handle: hyprwm
-    label: Hyprland
-
-  # --- Android & Devices ---
-  - handle: LineageOS
-    label: LineageOS
-  - handle: GrapheneOS
-    label: GrapheneOS
-  - handle: postmarketOS
-    label: postmarketOS
-  - handle: ubports
-    label: UBports
-
-  # --- Research & Open Models ---
-  - handle: EleutherAI
-    label: EleutherAI
-  - handle: Stability-AI
-    label: Stability AI
-  - handle: mistralai
-    label: Mistral AI
-  - handle: openai
-    label: OpenAI
-  - handle: mlcommons
-    label: MLCommons
-  - handle: LAION-AI
-    label: LAION
-
-  # --- Databases & Vector Stores ---
-  - handle: milvus-io
-    label: Milvus
-  - handle: qdrant
-    label: Qdrant
-  - handle: weaviate
-    label: Weaviate
-  - handle: chroma-core
-    label: Chroma
-  - handle: lancedb
-    label: LanceDB
-  - handle: duckdb
-    label: DuckDB
-  - handle: pgvector
-    label: pgvector
-  - handle: nmslib
-    label: NMSLIB (hnswlib)
-
-  # --- Browser & WebAssembly ---
-  - handle: mozilla
-    label: Mozilla
-    filter_topics: [webassembly, wasm, javascript, browser, gecko, wasi]
-  - handle: webkit
-    label: WebKit
-  - handle: bytecodealliance
-    label: Bytecode Alliance
-  - handle: WasmEdge-WASM
-    label: WasmEdge
-  - handle: gpuweb
-    label: GPU Web WG
-
-  # --- Agentic ---
-  - handle: langchain-ai
-    label: LangChain
-  - handle: run-llama
-    label: LlamaIndex
-  - handle: crewAIInc
-    label: CrewAI
-  - handle: deepset-ai
-    label: Deepset / Haystack
-  - handle: mem0ai
-    label: Mem0
-  - handle: letta-ai
-    label: Letta
-  - handle: pydantic
-    label: Pydantic
-  - handle: Significant-Gravitas
-    label: AutoGPT
-  - handle: geekan
-    label: MetaGPT
-  - handle: anthropics
-    label: Anthropic
-
-  # --- Observability ---
-  - handle: open-telemetry
-    label: OpenTelemetry
-  - handle: prometheus
-    label: Prometheus
-  - handle: grafana
-    label: Grafana
-  - handle: jaegertracing
-    label: Jaeger
-  - handle: mlflow
-    label: MLflow
-  - handle: iterative
-    label: Iterative (DVC)
-  - handle: evidentlyai
-    label: Evidently AI
-  - handle: arize-ai
-    label: Arize AI
-  - handle: cilium
-    label: Cilium
-  - handle: netdata
-    label: Netdata
-
-  # --- EDA / RTL Simulation / HLS ---
-  - handle: YosysHQ
-    label: YosysHQ (Yosys · nextpnr · SymbiYosys)
-  - handle: cocotb
-    label: cocotb (Python RTL verification)
-  - handle: verilator
-    label: Verilator
-  - handle: ghdl
-    label: GHDL (VHDL simulator)
-  - handle: steveicarus
-    label: Steve Icarus (Icarus Verilog)
-    type: user
   - handle: calyxir
-    label: Calyx IR (accelerator generator IR)
+    label: "Calyx IR"
+    type: org
+
+  # OS, Kernel & Systems
+  - handle: torvalds
+    label: "Linus Torvalds"
+    type: user
+    filter_repos: [linux]
+
+  - handle: freebsd
+    label: "FreeBSD"
+    type: org
+
+  - handle: iovisor
+    label: "IO Visor"
+    type: org
+
+  - handle: libbpf
+    label: "libbpf"
+    type: org
+
+  - handle: axboe
+    label: "Jens Axboe"
+    type: user
+
+  - handle: DPDK
+    label: "DPDK"
+    type: org
+
+  - handle: systemd
+    label: "systemd"
+    type: org
+
+  - handle: brendangregg
+    label: "Brendan Gregg"
+    type: user
+
+  - handle: sysstat
+    label: "sysstat"
+    type: org
+
+  # Drivers & Firmware
+  - handle: mesa3d
+    label: "Mesa 3D"
+    type: org
+
+  - handle: tianocore
+    label: "TianoCore"
+    type: org
+
+  - handle: coreboot
+    label: "coreboot"
+    type: org
+
+  - handle: u-boot
+    label: "Das U-Boot"
+    type: org
+
+  - handle: zephyrproject-rtos
+    label: "Zephyr"
+    type: org
+
+  # Open Desktop
+  - handle: KDE
+    label: "KDE"
+    type: org
+
+  - handle: GNOME
+    label: "GNOME"
+    type: org
+
+  - handle: freedesktop
+    label: "freedesktop.org"
+    type: org
+
+  - handle: wayland
+    label: "Wayland"
+    type: org
+
+  - handle: qt
+    label: "Qt"
+    type: org
+
+  - handle: swaywm
+    label: "Sway"
+    type: org
+
+  - handle: hyprwm
+    label: "Hyprland"
+    type: org
+
+  # Android & Devices
+  - handle: LineageOS
+    label: "LineageOS"
+    type: org
+
+  - handle: GrapheneOS
+    label: "GrapheneOS"
+    type: org
+
+  - handle: postmarketOS
+    label: "postmarketOS"
+    type: org
+
+  - handle: ubports
+    label: "UBports"
+    type: org
+
+  # EDA / RTL / HLS
+  - handle: YosysHQ
+    label: "YosysHQ"
+    type: org
+
+  - handle: cocotb
+    label: "cocotb"
+    type: org
+
+  - handle: verilator
+    label: "Verilator"
+    type: org
+
+  - handle: ghdl
+    label: "GHDL"
+    type: org
+
+  - handle: steveicarus
+    label: "Steve Icarus"
+    type: user
+
   - handle: ferrandi
-    label: PandA-Bambu HLS (PoliMi)
+    label: "Bambu HLS"
     type: user
+
   - handle: pymtl
-    label: PyMTL3 (Python HW modelling)
+    label: "PyMTL3"
+    type: org
+
   - handle: UCSBarchlab
-    label: UCSB Arch Lab (PyRTL)
+    label: "UCSB Arch Lab"
+    type: org
+
   - handle: lnis-uofu
-    label: OpenFPGA (UOFU)
+    label: "OpenFPGA"
+    type: org
+
   - handle: f4pga
-    label: F4PGA (open FPGA toolchain)
+    label: "F4PGA"
+    type: org
+
   - handle: enjoy-digital
-    label: Enjoy Digital (LiteX · LitePCIe · LiteEth)
+    label: "Enjoy Digital"
     type: user
+
   - handle: litex-hub
-    label: LiteX Hub (board support · cores)
+    label: "LiteX Hub"
+    type: org
+
   - handle: gatecat
-    label: gatecat (prjoxide · prjtrellis)
+    label: "gatecat"
     type: user
+
   - handle: alexforencich
-    label: Alex Forencich (Verilog PCIe · Ethernet · AXI)
+    label: "Alex Forencich"
     type: user
 
-  # --- PCIe / CXL / NVMe / Interconnect ---
+  # PCIe / CXL / Interconnect
   - handle: spdk
-    label: SPDK (user-space NVMe · PCIe)
+    label: "SPDK"
+    type: org
+
   - handle: ofiwg
-    label: OpenFabrics (libfabric · RDMA)
+    label: "OpenFabrics"
+    type: org
+
   - handle: linux-nvme
-    label: NVMe CLI
+    label: "NVMe CLI"
+    type: org
+
   - handle: linux-rdma
-    label: RDMA core (rdma-core)
+    label: "RDMA Core"
+    type: org
+
   - handle: pmem
-    label: PMDK (Persistent Memory)
+    label: "Persistent Memory"
+    type: org
 
-  # --- SoC / RISC-V ---
+  # SoC / RISC-V
   - handle: chipsalliance
-    label: CHIPS Alliance (Chisel · FIRRTL · Rocket · F4PGA)
-  - handle: openhwgroup
-    label: OpenHW Group (CV32E40P · CVA6 · CORE-V)
-  - handle: ucb-bar
-    label: UC Berkeley (Chipyard · BOOM · Hammer)
-  - handle: pulp-platform
-    label: PULP Platform (CVA6 · Cheshire · Bender)
-  - handle: lowrisc
-    label: lowRISC (OpenTitan · ibex)
-  - handle: riscv
-    label: RISC-V International (ISA spec)
-  - handle: riscv-boom
-    label: Berkeley OOO Machine (BOOM)
-  - handle: riscv-software-src
-    label: RISC-V Software (Spike · riscv-tests)
+    label: "CHIPS Alliance"
+    type: org
 
-# HuggingFace Hub orgs (model + dataset tracking via HF API)
-hf_orgs:
-  - handle: huggingface
-  - handle: microsoft
-  - handle: google
-  - handle: meta-llama
-  - handle: mistralai
+  - handle: openhwgroup
+    label: "OpenHW Group"
+    type: org
+
+  - handle: ucb-bar
+    label: "UC Berkeley BAR"
+    type: org
+
+  - handle: pulp-platform
+    label: "PULP Platform"
+    type: org
+
+  - handle: lowrisc
+    label: "lowRISC"
+    type: org
+
+  - handle: riscv
+    label: "RISC-V International"
+    type: org
+
+  - handle: riscv-boom
+    label: "Berkeley OOO Machine"
+    type: org
+
+  - handle: riscv-software-src
+    label: "RISC-V Software"
+    type: org
+
+  # Research & Open Models
   - handle: EleutherAI
+    label: "EleutherAI"
+    type: org
+
   - handle: Stability-AI
-  - handle: BAAI
-  - handle: Qwen
-  - handle: deepseek-ai
-  - handle: tiiuae
-  - handle: nvidia
-  - handle: intel
+    label: "Stability AI"
+    type: org
+
+  - handle: mistralai
+    label: "Mistral AI"
+    type: org
+
+  - handle: openai
+    label: "OpenAI"
+    type: org
+
+  - handle: mlcommons
+    label: "MLCommons"
+    type: org
+
+  # Databases & Vector Stores
+  - handle: milvus-io
+    label: "Milvus"
+    type: org
+
+  - handle: qdrant
+    label: "Qdrant"
+    type: org
+
+  - handle: weaviate
+    label: "Weaviate"
+    type: org
+
+  - handle: chroma-core
+    label: "Chroma"
+    type: org
+
+  - handle: lancedb
+    label: "LanceDB"
+    type: org
+
+  - handle: duckdb
+    label: "DuckDB"
+    type: org
+
+  - handle: pgvector
+    label: "pgvector"
+    type: org
+
+  # Browser & WebAssembly
+  - handle: mozilla
+    label: "Mozilla"
+    type: org
+    filter_topics: [webassembly, wasm, rust, browser]
+
+  - handle: bytecodealliance
+    label: "Bytecode Alliance"
+    type: org
+
+  - handle: WasmEdge-WASM
+    label: "WasmEdge"
+    type: org
+
+  # Agentic Systems
+  - handle: langchain-ai
+    label: "LangChain"
+    type: org
+
+  - handle: run-llama
+    label: "LlamaIndex"
+    type: org
+
+  - handle: crewAIInc
+    label: "CrewAI"
+    type: org
+
+  - handle: deepset-ai
+    label: "Deepset"
+    type: org
+
+  - handle: mem0ai
+    label: "Mem0"
+    type: org
+
+  - handle: letta-ai
+    label: "Letta"
+    type: org
+
+  - handle: pydantic
+    label: "Pydantic"
+    type: org
+
+  # Observability
+  - handle: open-telemetry
+    label: "OpenTelemetry"
+    type: org
+
+  - handle: prometheus
+    label: "Prometheus"
+    type: org
+
+  - handle: grafana
+    label: "Grafana"
+    type: org
+
+  - handle: mlflow
+    label: "MLflow"
+    type: org
+
+  - handle: iterative
+    label: "Iterative"
+    type: org
+
+  - handle: evidentlyai
+    label: "Evidently AI"
+    type: org
+
+# HuggingFace Hub orgs (for hf_fetcher)
+hf_orgs:
+  - huggingface
+  - microsoft
+  - google
+  - meta-llama
+  - mistralai
+  - EleutherAI
+  - BAAI
+  - Qwen
+  - deepseek-ai
+  - nvidia
+  - intel

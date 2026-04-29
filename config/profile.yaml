@@ -1,102 +1,67 @@
-# User Interest Profile
-# Edit domain_weights to tune what scores high for you.
-# 0.0 = exclude entirely  |  1.0 = neutral  |  3.0 = highest boost
+domain_weights:
+  eda_sim: 3.0
+  fpga: 3.0
+  interconnect: 2.8
+  soc_riscv: 2.5
+  ai_compiler: 2.8
+  gpu_runtime: 2.8
+  os_kernel: 2.5
+  drivers_firmware: 2.0
+  desktop_open: 2.0
+  cpu_inference: 2.0
+  quantization: 2.0
+  llm_inference: 2.0
+  ml_training: 1.5
+  hf_ecosystem: 1.0
+  hw_abstraction: 1.5
+  profiling: 1.5
+  databases: 1.0
+  browser_wasm: 0.8
+  agentic: 0.5
+  observability: 1.0
+  android_device: 0.5
 
-profile:
-  name: "OS · AI · FPGA · GPU · Inference · EDA · PCIe · RISC-V"
+scoring_weights:
+  activity: 0.20
+  ontology: 0.30
+  deps: 0.20
+  profile: 0.30
 
-  domain_weights:
-    # ── Hardware Foundation ──────────────────────────────────────────
-    os_kernel:          2.5   # Linux kernel, eBPF, io_uring, DPDK
-    drivers_firmware:   2.5   # Mesa, EDK2, Zephyr, device drivers
-    desktop_open:       2.0   # KDE/GNOME/Wayland — SuryaOS work
-    android_device:     1.5   # Android HAL, postmarketOS
-    fpga:               3.0   # FPGA inference, Alveo, Vitis HLS
-    eda_sim:            2.8   # Yosys, Verilator, cocotb, GHDL, Calyx
-    interconnect:       2.8   # PCIe, CXL, NVMe, RDMA, SPDK
-    soc_riscv:          2.5   # Chipyard, CVA6, Rocket, LiteX, OpenTitan
+tech_interests:
+  - mlir
+  - circt
+  - iree
+  - rocm
+  - triton
+  - verilator
+  - cocotb
+  - litex
+  - spdk
+  - pcie
+  - cxl
+  - chisel
+  - firrtl
+  - yosys
+  - hls
+  - vitis
+  - alveo
 
-    # ── Compute Engines ──────────────────────────────────────────────
-    cpu_inference:      2.5   # SIMD, AMX, ARM SVE, oneDNN
-    gpu_runtime:        3.0   # CUDA, ROCm, HIP, SYCL
-    ai_compiler:        3.0   # MLIR, IREE, Triton, TVM, CIRCT
+priority_orgs:
+  - openxla
+  - iree-org
+  - llvm
+  - YosysHQ
+  - cocotb
+  - chipsalliance
+  - enjoy-digital
+  - triton-lang
+  - ROCm
+  - Xilinx
 
-    # ── AI/ML Stack ──────────────────────────────────────────────────
-    quantization:       2.5   # GPTQ, AWQ, INT8/INT4, pruning
-    llm_inference:      2.2   # vLLM, llama.cpp, TRT-LLM
-    ml_training:        1.5   # PyTorch, JAX, DeepSpeed
-    hf_ecosystem:       1.8   # Transformers, Diffusers, PEFT
-    hw_abstraction:     2.5   # ONNX Runtime, OpenVINO, QNN
-
-    # ── Infrastructure ───────────────────────────────────────────────
-    profiling:          2.2   # MLPerf, NSight, VTune, perf
-    databases:          1.2   # Vector DBs, DuckDB (lower priority)
-    browser_wasm:       1.5   # WebGPU, WebNN, Wasmtime
-    agentic:            1.0   # LangChain, AutoGen (context only)
-    observability:      2.2   # OTel, MLflow, eBPF tracing — OCT project
-
-  # Tech nodes you actively use or closely follow — boost S_profile
-  tech_interests:
-    # Compilers
-    - mlir
-    - circt
-    - iree
-    - triton
-    - tvm
-    # Hardware / FPGA
-    - rocm
-    - cuda
-    - sycl
-    - litex
-    - verilator
-    - cocotb
-    - yosys
-    # Inference
-    - onnxruntime
-    - openvino
-    - vllm
-    - llama.cpp
-    # Interconnect
-    - spdk
-    - rdma
-    - pcie
-    - libfabric
-    # Systems
-    - ebpf
-    - mesa
-    - wayland
-    # Quantization
-    - gptq
-    - awq
-
-  preferred_languages:
-    - C++
-    - Python
-    - Rust
-    - C
-    - Scala       # Chisel/FIRRTL
-
-  # Orgs you consider highest-priority — small additive bonus to S_profile
-  priority_orgs:
-    - openxla
-    - iree-org
-    - llvm            # CIRCT lives here
-    - triton-lang
-    - intel
-    - ROCm
-    - tenstorrent
-    - mesa3d
-    - KDE
-    - torvalds
-    - YosysHQ
-    - cocotb
-    - chipsalliance
-    - enjoy-digital
-    - spdk
-
-  # Composite weight overrides (must sum to 1.0)
-  scoring_weights:
-    W_activity:  0.20
-    W_ontology:  0.30
-    W_deps:      0.20
-    W_profile:   0.30
+preferred_languages:
+  - Python
+  - C++
+  - Rust
+  - C
+  - Scala
+  - SystemVerilog

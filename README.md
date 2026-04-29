@@ -8,9 +8,12 @@ Clone on any machine → run the full pipeline → push all state to cloud → w
 
 ```bash
 git clone https://github.com/rajaghv-dev/repo-hub
-cd repo-hub && cp .env.example .env   # fill in 4 tokens
+cd repo-hub
+cp .env.example .env   # fill in 4 tokens: GITHUB_TOKEN, HF_TOKEN, DATABASE_URL, REPO_HUB_GCS_BUCKET
 pip install -e .
-repo-hub all --clean
+repo-hub doctor        # verify all connections
+repo-hub db init       # run schema.sql (first time only)
+repo-hub all --clean   # full pipeline + wipe local data
 ```
 
 All state lives in three cloud stores: **PostgreSQL** (repos, scores, vectors, your annotations), **GCS** (raw cache, Parquet exports), and **GitHub** (code, config, auto-generated report). The local `data/` directory is always safe to delete.
@@ -132,16 +135,30 @@ repo-hub profile            # show / init / set-weight
 
 ---
 
-## Implementation Roadmap
+## Installation
 
-Four phases, each independently useful:
+```bash
+pip install -e .          # installs repo_hub package + repo-hub CLI entry point
+pip install -e ".[dev]"   # + pytest/coverage for development
+```
 
-| Phase | What it adds |
+**Required secrets** (set in `.env`):
+| Variable | Purpose |
 |---|---|
-| **1 — Foundation** | Fetch · classify (keyword ontology) · score · embed · annotate · push/restore cycle |
-| **2 — Intelligence** | Hourly pulse watcher (RSS/Atom/ArXiv) · contributor tracking · LLM classification for top repos |
-| **3 — Graph** | Kuzu knowledge graph (dep edges + contributor graph + tech nodes) · `repo-hub graph` |
-| **4 — Synthesis** | RAG query interface · `repo-hub ask` · `repo-hub discover` |
+| `GITHUB_TOKEN` | GitHub API — 5000 req/hr vs 60 without |
+| `HF_TOKEN` | HuggingFace Hub API (optional but higher limits) |
+| `DATABASE_URL` | PostgreSQL connection string (Neon / Supabase / local Docker) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | GCS service account JSON path |
+| `REPO_HUB_GCS_BUCKET` | GCS bucket name |
+
+## Implementation Status
+
+| Phase | Status | What it adds |
+|---|---|---|
+| **1 — Foundation** | **Implemented** | Fetch · keyword classify · score · embed · annotate · push/restore |
+| **2 — Intelligence** | Planned | Hourly pulse watcher · contributor tracking · LLM classification |
+| **3 — Graph** | Planned | Kuzu knowledge graph · dep edges · `repo-hub graph` |
+| **4 — Synthesis** | Planned | RAG · `repo-hub ask` · `repo-hub discover` |
 
 See [better.md](better.md) for the full rationale behind each phase.
 
